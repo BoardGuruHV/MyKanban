@@ -3,9 +3,10 @@
 
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Note: package-lock.json is NOT ignored (needed for Railway deployment)
 
 # Environment variables
 .env
