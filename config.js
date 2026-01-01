@@ -14,7 +14,7 @@ window.APP_CONFIG = {
   // so the frontend doesn't need to know the difference
   get API_URL() {
     return this.ENV === 'production'
-      ? 'https://mykanban-api.up.railway.app'  // Replace with your Railway URL after deployment
+      ? 'https://mykanban-production.up.railway.app'
       : 'http://localhost:11434';
   }
 };
