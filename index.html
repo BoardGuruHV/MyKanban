@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Development Kanban</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --secondary: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --info: #4299e1;
+            --bg-light: #f7fafc;
+            --bg-dark: #2d3748;
+            --text-dark: #2d3748;
+            --text-light: #718096;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-light);
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Navigation */
+        .nav-container {
+            background: white;
+            border-bottom: 2px solid var(--border);
+            overflow-x: auto;
+            position: sticky;
+            top: 0;
+            z-index: 90;
+        }
+
+        .nav {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 2rem;
+        }
+
+        .nav-tab {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .nav-tab:hover {
+            color: var(--primary);
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .view {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .view.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Kanban Board */
+        .board-container {
+            flex: 1;
+            overflow: hidden;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .board-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .board-title {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .board-stats {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-badge .label {
+            color: var(--text-light);
+        }
+
+        .stat-badge .value {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .kanban-board {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .kanban-column {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+            max-height: 100%;
+        }
+
+        .column-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-title {
+            font-weight: 700;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .column-count {
+            background: var(--bg-light);
+            color: var(--text-light);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .column-backlog .column-title { color: var(--text-light); }
+        .column-in-progress .column-title { color: var(--warning); }
+        .column-done .column-title { color: var(--success); }
+
+        .column-cards {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .column-cards::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .column-cards::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .column-cards::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        /* Feature Card */
+        .feature-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            cursor: move;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+        }
+
+        .feature-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .feature-card.dragging {
+            opacity: 0.5;
+        }
+
+        .feature-card.drag-over {
+            border-top: 3px solid var(--primary);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 1rem;
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .card-menu {
+            position: relative;
+        }
+
+        .card-menu-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem;
+            color: var(--text-light);
+            font-size: 1.25rem;
+            line-height: 1;
+        }
+
+        .card-description {
+            color: var(--text-light);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .card-prompt {
+            background: var(--bg-light);
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: var(--text-dark);
+            margin-bottom: 0.75rem;
+            max-height: 100px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-tags {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .card-tag {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(102, 126, 234, 0.1);
+            color: var(--primary);
+            border-radius: 4px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text-dark);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            color: var(--text-light);
+        }
+
+        .btn-icon:hover {
+            background: var(--bg-light);
+            color: var(--primary);
+        }
+
+        /* Unified View */
+        .unified-grid {
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .project-board-mini {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .project-board-mini h3 {
+            font-size: 1.25rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mini-progress {
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-light);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success) 0%, var(--primary) 100%);
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+
+        .mini-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .mini-stat {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--bg-light);
+            border-radius: 6px;
+        }
+
+        .mini-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .mini-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+            line-height: 1;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: white;
+            color: var(--text-dark);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            transform: translateX(400px);
+            transition: transform 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        .toast.info {
+            border-left-color: var(--info);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-light);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Project Checkboxes */
+        .project-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .project-checkbox-item:hover {
+            background: var(--bg-light);
+        }
+
+        .project-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .project-checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .project-color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* Ollama Status Indicator */
+        .ollama-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .ollama-status:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-light);
+            animation: pulse 2s infinite;
+        }
+
+        .ollama-status.connected .status-dot {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .ollama-status.disconnected .status-dot {
+            background: var(--danger);
+            animation: none;
+        }
+
+        .ollama-status.checking .status-dot {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        .status-text {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Variant Preview Items */
+        .variant-preview-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .variant-preview-card {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            background: white;
+        }
+
+        .variant-preview-card.success {
+            border-color: var(--success);
+        }
+
+        .variant-preview-card.error {
+            border-color: var(--danger);
+        }
+
+        .variant-preview-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .variant-preview-status {
+            font-size: 0.875rem;
+            margin-left: auto;
+        }
+
+        .variant-preview-textarea {
+            width: 100%;
+            min-height: 120px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.875rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            resize: vertical;
+        }
+
+        .variant-preview-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .variant-badge {
+            font-size: 0.75rem;
+            color: var(--info);
+            background: rgba(66, 153, 225, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .kanban-board {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
+
+            .unified-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="config.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <h1>
+                    <span>🎯</span>
+                    <span>Feature Development Kanban</span>
+                </h1>
+                <div class="header-actions">
+                    <div id="ollama-status" class="ollama-status" onclick="handleOllamaStatusClick()" title="Click for details">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Checking...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="openModal('add-project')">
+                        ➕ Add Project
+                    </button>
+                    <button class="btn btn-primary btn-small" onclick="openModal('add-feature')">
+                        ✨ Add Feature
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="exportData()">
+                        💾 Export
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="openModal('settings')">
+                        ⚙️ Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="nav-container">
+            <div class="nav" id="nav-tabs">
+                <button class="nav-tab active" onclick="switchView('unified')">
+                    📊 Unified View
+                </button>
+                <!-- Project tabs will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Unified View -->
+            <div class="view active" id="unified-view">
+                <div class="unified-grid" id="unified-grid">
+                    <!-- Project mini-boards will be added here -->
+                </div>
+            </div>
+
+            <!-- Project Views (Dynamic) -->
+            <div id="project-views">
+                <!-- Individual project boards will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Feature Modal -->
+    <div class="modal" id="add-feature-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Feature</h2>
+                <button class="modal-close" onclick="closeModal('add-feature')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="feature-form">
+                    <div class="form-group">
+                        <label>Feature Title *</label>
+                        <input type="text" id="feature-title" placeholder="e.g., Command Palette Enhancement" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="feature-description" placeholder="Brief description">
+                    </div>
+                    <div class="form-group">
+                        <label>Prompt for Coding Agent *</label>
+                        <textarea id="feature-prompt" placeholder="Enter the detailed prompt..." required></textarea>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-secondary btn-small" onclick="enhancePromptWithAI()" id="enhance-btn">
+                                ✨ Enhance with AI
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="revertPrompt()" id="revert-btn" style="display: none;">
+                                ↩️ Revert
+                            </button>
+                        </div>
+                        <small id="enhancement-status" style="color: var(--text-light); margin-top: 0.5rem; display: none;"></small>
+                    </div>
+                    <div class="form-group">
+                        <label>Tags (comma-separated)</label>
+                        <input type="text" id="feature-tags" placeholder="e.g., ui, analytics, enhancement">
+                    </div>
+                    <div class="form-group">
+                        <label>Add to Projects *</label>
+                        <div id="project-checkboxes" style="max-height: 200px; overflow-y: auto; border: 2px solid var(--border); border-radius: 6px; padding: 0.75rem;">
+                            <!-- Project checkboxes will be added here dynamically -->
+                        </div>
+                        <small style="color: var(--text-light); margin-top: 0.5rem; display: block;">Select at least one project</small>
+                    </div>
+                    <div class="form-group" id="contextualization-choice" style="display: none;">
+                        <label>Feature Creation Mode</label>
+                        <div style="display: flex; gap: 1rem; flex-direction: column;">
+                            <label style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                                <input type="radio" name="creation-mode" value="identical" checked style="margin-top: 0.25rem;">
+                                <div style="flex: 1;">
+                                    <strong style="display: block; margin-bottom: 0.25rem;">Create Identical Features</strong>
+                                    <small style="color: var(--text-light); font-size: 0.875rem;">
+                                        Same prompt for all projects (fast)
+                                    </small>
+                                </div>
+                            </label>
+                            <label id="contextualize-option" style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                                <input type="radio" name="creation-mode" value="contextualize" id="contextualize-radio" style="margin-top: 0.25rem;">
+                                <div style="flex: 1;">
+                                    <strong style="display: block; margin-bottom: 0.25rem;">Contextualize with AI</strong>
+                                    <small style="color: var(--text-light); font-size: 0.875rem;">
+                                        AI customizes prompt for each project (requires Ollama)
+                                    </small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Feature</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Project Modal -->
+    <div class="modal" id="add-project-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Project</h2>
+                <button class="modal-close" onclick="closeModal('add-project')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="project-form">
+                    <div class="form-group">
+                        <label>Project Name *</label>
+                        <input type="text" id="project-name" placeholder="e.g., SpecSpot" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Project Path</label>
+                        <input type="text" id="project-path" placeholder="e.g., /home/vik/SpecSpot">
+                    </div>
+                    <div class="form-group">
+                        <label>AI Context (Optional)</label>
+                        <textarea id="project-ai-context" placeholder="e.g., Python Flask API, uses SQLAlchemy, RESTful patterns" style="min-height: 80px;"></textarea>
+                        <small style="color: var(--text-light); margin-top: 0.5rem; display: block;">
+                            This context helps AI customize feature prompts for this project
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>Color Theme</label>
+                        <select id="project-color">
+                            <option value="#667eea">Blue Purple</option>
+                            <option value="#48bb78">Green</option>
+                            <option value="#ed8936">Orange</option>
+                            <option value="#f56565">Red</option>
+                            <option value="#4299e1">Blue</option>
+                            <option value="#9f7aea">Purple</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Project</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>AI Settings</h2>
+                <button class="modal-close" onclick="closeModal('settings')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label>Ollama API URL</label>
+                        <input type="text" id="ollama-url" placeholder="http://localhost:11434" value="http://localhost:11434">
+                        <small style="color: var(--text-light); margin-top: 0.5rem; display: block;">
+                            For local: http://localhost:11434 | For production: use Railway API endpoint
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>Model</label>
+                        <input type="text" id="ollama-model" placeholder="llama3" value="llama3">
+                        <small style="color: var(--text-light); margin-top: 0.5rem; display: block;">
+                            Examples: llama3, codellama, deepseek-coder, qwen2.5-coder
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>Enhancement System Prompt</label>
+                        <textarea id="enhancement-prompt" style="min-height: 150px;" placeholder="Enter system prompt for enhancement...">You are an expert at writing detailed, clear prompts for AI coding agents. Given a brief feature request, expand it into a comprehensive, well-structured prompt that includes:
+1. Clear objective and context
+2. Specific implementation steps
+3. Technical requirements and constraints
+4. Edge cases to consider
+5. Testing and validation criteria
+
+Keep the enhanced prompt practical and actionable. Format it in a clear, organized way.</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Contextualization System Prompt</label>
+                        <textarea id="contextualization-prompt" style="min-height: 150px;" placeholder="Enter system prompt for contextualizing features for different projects...">You are an expert at adapting feature requirements for specific project contexts.
+
+Given:
+1. A base feature prompt
+2. Project-specific technical context (tech stack, patterns, constraints)
+
+Create a contextualized version that:
+- Maintains the core objective
+- Adapts implementation details to the project's tech stack
+- Includes project-specific considerations
+- Keeps the same structure and clarity
+
+Output ONLY the adapted prompt, no explanations.</textarea>
+                        <small style="color: var(--text-light); margin-top: 0.5rem; display: block;">
+                            Used when creating features for multiple projects with AI contextualization
+                        </small>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="testOllamaConnection()">Test Connection</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ollama Helper Modal -->
+    <div class="modal" id="ollama-helper-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Ollama Status</h2>
+                <button class="modal-close" onclick="closeModal('ollama-helper')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="ollama-helper-content">
+                    <!-- Content will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contextualization Preview Modal -->
+    <div class="modal" id="contextualization-preview-modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Review Contextualized Features</h2>
+                <button class="modal-close" onclick="closeModal('contextualization-preview')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="variant-previews">
+                    <!-- Preview items will be populated dynamically -->
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid var(--border);">
+                    <button class="btn btn-primary" onclick="confirmContextualization()" id="confirm-contextualization-btn" disabled>
+                        Create All Features
+                    </button>
+                    <button class="btn btn-secondary" onclick="cancelContextualization()">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        // Data
+        let features = [];
+        let projects = [];
+        let featureStatus = {}; // { featureId: { projectId: 'backlog|in_progress|done' } }
+
+        // AI Settings
+        let aiSettings = {
+            ollamaUrl: window.APP_CONFIG?.API_URL || 'http://localhost:11434',
+            model: 'llama3',
+            systemPrompt: `You are an expert at writing detailed, clear prompts for AI coding agents. Given a brief feature request, expand it into a comprehensive, well-structured prompt that includes:
+1. Clear objective and context
+2. Specific implementation steps
+3. Technical requirements and constraints
+4. Edge cases to consider
+5. Testing and validation criteria
+
+Keep the enhanced prompt practical and actionable. Format it in a clear, organized way.`,
+            contextualizationPrompt: `You are an expert at adapting feature requirements for specific project contexts.
+
+Given:
+1. A base feature prompt
+2. Project-specific technical context (tech stack, patterns, constraints)
+
+Create a contextualized version that:
+- Maintains the core objective
+- Adapts implementation details to the project's tech stack
+- Includes project-specific considerations
+- Keeps the same structure and clarity
+
+Output ONLY the adapted prompt, no explanations.`
+        };
+
+        // For prompt revert functionality
+        let originalPrompt = '';
+
+        // Ollama status tracking
+        let ollamaStatus = 'checking';
+        let statusCheckInterval = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            renderNav();
+            renderAllViews();
+
+            // Event listeners
+            document.getElementById('feature-form').addEventListener('submit', handleAddFeature);
+            document.getElementById('project-form').addEventListener('submit', handleAddProject);
+
+            // Click outside modal to close
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('show');
+                    }
+                });
+            });
+
+            // Enable drag and drop
+            setupDragAndDrop();
+
+            // Start Ollama status checking
+            checkOllamaStatus();
+            statusCheckInterval = setInterval(checkOllamaStatus, 10000); // Check every 10 seconds
+        });
+
+        // Load data
+        function loadData() {
+            const savedFeatures = localStorage.getItem('kanban_features');
+            const savedProjects = localStorage.getItem('kanban_projects');
+            const savedStatus = localStorage.getItem('kanban_status');
+            const savedAiSettings = localStorage.getItem('kanban_ai_settings');
+
+            if (savedFeatures) features = JSON.parse(savedFeatures);
+            if (savedProjects) projects = JSON.parse(savedProjects);
+            if (savedStatus) featureStatus = JSON.parse(savedStatus);
+            if (savedAiSettings) aiSettings = JSON.parse(savedAiSettings);
+
+            // Populate settings form if it exists
+            loadSettingsForm();
+        }
+
+        // Save data
+        function saveData() {
+            localStorage.setItem('kanban_features', JSON.stringify(features));
+            localStorage.setItem('kanban_projects', JSON.stringify(projects));
+            localStorage.setItem('kanban_status', JSON.stringify(featureStatus));
+            localStorage.setItem('kanban_ai_settings', JSON.stringify(aiSettings));
+        }
+
+        // Add feature
+        async function handleAddFeature(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('feature-title').value.trim();
+            const description = document.getElementById('feature-description').value.trim();
+            const basePrompt = document.getElementById('feature-prompt').value.trim();
+            const tags = document.getElementById('feature-tags').value.trim().split(',').map(t => t.trim()).filter(Boolean);
+
+            // Get selected projects
+            const selectedProjects = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            // Validate at least one project is selected
+            if (selectedProjects.length === 0) {
+                showToast('Please select at least one project', 'error');
+                return;
+            }
+
+            // Get creation mode
+            const creationMode = document.querySelector('input[name="creation-mode"]:checked')?.value || 'identical';
+
+            // Route based on creation mode
+            if (creationMode === 'identical' || selectedProjects.length === 1) {
+                // Original behavior: one feature for all projects
+                createIdenticalFeature(title, description, basePrompt, tags, selectedProjects);
+            } else {
+                // New behavior: contextualize for each project
+                await createContextualizedFeatures(title, description, basePrompt, tags, selectedProjects);
+            }
+        }
+
+        // Create identical feature for all selected projects
+        function createIdenticalFeature(title, description, prompt, tags, selectedProjects) {
+            const feature = {
+                id: Date.now().toString(),
+                title,
+                description,
+                prompt,
+                tags,
+                createdAt: new Date().toISOString(),
+                // New fields for backward compatibility
+                isVariant: false,
+                variantGroupId: null,
+                basePrompt: null,
+                projectId: null,
+                contextualizedFor: null
+            };
+
+            features.push(feature);
+
+            // Initialize status ONLY for selected projects
+            featureStatus[feature.id] = {};
+            selectedProjects.forEach(projectId => {
+                featureStatus[feature.id][projectId] = 'backlog';
+            });
+
+            saveData();
+            closeModal('add-feature');
+            renderAllViews();
+            showToast(`Feature added to ${selectedProjects.length} project(s)!`);
+            document.getElementById('feature-form').reset();
+        }
+
+        // Create contextualized features for multiple projects
+        async function createContextualizedFeatures(title, description, basePrompt, tags, selectedProjectIds) {
+            const variantGroupId = `variant-${Date.now()}`;
+            const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
+
+            // Close add-feature modal, open preview modal
+            closeModal('add-feature');
+            openContextualizationPreview(title, selectedProjects.length);
+
+            const variantPrompts = {};
+
+            // Sequential AI calls for each project
+            for (const project of selectedProjects) {
+                try {
+                    const contextualizedPrompt = await contextualizePromptForProject(
+                        basePrompt,
+                        project,
+                        title,
+                        description
+                    );
+
+                    variantPrompts[project.id] = {
+                        prompt: contextualizedPrompt,
+                        project: project,
+                        status: 'success'
+                    };
+
+                    updateContextualizationPreview(project.id, contextualizedPrompt, project);
+
+                } catch (error) {
+                    console.error(`Failed to contextualize for ${project.name}:`, error);
+
+                    variantPrompts[project.id] = {
+                        prompt: basePrompt,  // fallback to base
+                        project: project,
+                        status: 'failed',
+                        error: error.message
+                    };
+
+                    updateContextualizationPreview(project.id, basePrompt, project, error.message);
+                }
+            }
+
+            // Store for later confirmation
+            window.pendingVariants = {
+                title,
+                description,
+                basePrompt,
+                tags,
+                variantGroupId,
+                variantPrompts
+            };
+
+            enableConfirmButton();
+        }
+
+        // Contextualize prompt for a single project
+        async function contextualizePromptForProject(basePrompt, project, featureTitle, featureDescription) {
+            const projectContext = project.aiContext || `Project: ${project.name}${project.path ? `\nPath: ${project.path}` : ''}`;
+
+            const systemPrompt = aiSettings.contextualizationPrompt;
+
+            const fullPrompt = `${systemPrompt}
+
+BASE FEATURE:
+Title: ${featureTitle}
+Description: ${featureDescription}
+Base Prompt:
+${basePrompt}
+
+PROJECT CONTEXT:
+${projectContext}
+
+CONTEXTUALIZED PROMPT:`;
+
+            // Add timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+            try {
+                const response = await fetch(`${aiSettings.ollamaUrl}/api/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: aiSettings.model,
+                        prompt: fullPrompt,
+                        stream: false
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Ollama API error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                return data.response.trim();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timed out after 30 seconds');
+                }
+                throw error;
+            }
+        }
+
+        // Confirm and create all contextualized features
+        function confirmContextualization() {
+            if (!window.pendingVariants) return;
+
+            const { title, description, basePrompt, tags, variantGroupId, variantPrompts } = window.pendingVariants;
+
+            // Create feature object for each variant
+            Object.entries(variantPrompts).forEach(([projectId, variantData], index) => {
+                // Get the potentially edited prompt from the textarea
+                const textarea = document.getElementById(`prompt-${projectId}`);
+                const finalPrompt = textarea ? textarea.value.trim() : variantData.prompt;
+
+                const feature = {
+                    id: `${Date.now()}-${index}`,
+                    title,
+                    description,
+                    prompt: finalPrompt,  // Use edited prompt from preview
+                    tags,
+                    createdAt: new Date().toISOString(),
+                    isVariant: true,
+                    variantGroupId: variantGroupId,
+                    basePrompt: basePrompt,
+                    projectId: projectId,
+                    contextualizedFor: variantData.project.name
+                };
+
+                features.push(feature);
+
+                // Set status to backlog for this specific project only
+                featureStatus[feature.id] = {
+                    [projectId]: 'backlog'
+                };
+            });
+
+            saveData();
+            closeModal('contextualization-preview');
+            renderAllViews();
+            showToast(`Created ${Object.keys(variantPrompts).length} contextualized features!`);
+
+            // Clean up
+            window.pendingVariants = null;
+            document.getElementById('feature-form').reset();
+        }
+
+        // Cancel contextualization
+        function cancelContextualization() {
+            // Clean up
+            window.pendingVariants = null;
+
+            closeModal('contextualization-preview');
+            showToast('Contextualization cancelled', 'info');
+
+            // Optionally re-open the add feature modal
+            // openModal('add-feature');
+        }
+
+        // Open contextualization preview modal
+        function openContextualizationPreview(featureTitle, projectCount) {
+            const modal = document.getElementById('contextualization-preview-modal');
+            const container = document.getElementById('variant-previews');
+
+            container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <h3 style="color: var(--text-dark); margin-bottom: 0.5rem;">Contextualizing "${escapeHtml(featureTitle)}" for ${projectCount} projects...</h3>
+                    <p style="color: var(--text-light);">This may take a few moments</p>
+                </div>
+                <div id="preview-items"></div>
+            `;
+
+            modal.classList.add('show');
+        }
+
+        // Update preview with contextualized prompt
+        function updateContextualizationPreview(projectId, prompt, project, error = null) {
+            const container = document.getElementById('preview-items');
+
+            // Check if preview already exists for this project
+            let previewItem = document.getElementById(`preview-${projectId}`);
+
+            if (!previewItem) {
+                previewItem = document.createElement('div');
+                previewItem.className = 'variant-preview-item';
+                previewItem.id = `preview-${projectId}`;
+                container.appendChild(previewItem);
+            }
+
+            previewItem.innerHTML = `
+                <div class="variant-preview-card ${error ? 'error' : 'success'}">
+                    <div class="variant-preview-header">
+                        <span style="color: ${project.color}">●</span>
+                        <strong>${escapeHtml(project.name)}</strong>
+                        <span class="variant-preview-status">
+                            ${error ?
+                                `<span style="color: var(--danger);">⚠️ ${escapeHtml(error)}</span>` :
+                                '<span style="color: var(--success);">✅ Done</span>'
+                            }
+                        </span>
+                    </div>
+                    <textarea id="prompt-${projectId}"
+                              class="variant-preview-textarea">${escapeHtml(prompt)}</textarea>
+                    <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-small" onclick="revertToBase('${projectId}')" title="Revert to base prompt">
+                            ↩️ Revert to Base
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Enable the confirm button once all contextualizations are complete
+        function enableConfirmButton() {
+            const confirmBtn = document.getElementById('confirm-contextualization-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                const variantCount = Object.keys(window.pendingVariants?.variantPrompts || {}).length;
+                confirmBtn.textContent = `Create ${variantCount} Feature${variantCount > 1 ? 's' : ''}`;
+            }
+        }
+
+        // Revert a variant prompt to the base prompt
+        function revertToBase(projectId) {
+            if (!window.pendingVariants) return;
+
+            const textarea = document.getElementById(`prompt-${projectId}`);
+            if (textarea && window.pendingVariants.basePrompt) {
+                textarea.value = window.pendingVariants.basePrompt;
+
+                // Update the stored variant data
+                if (window.pendingVariants.variantPrompts[projectId]) {
+                    window.pendingVariants.variantPrompts[projectId].prompt = window.pendingVariants.basePrompt;
+                }
+
+                showToast('Prompt reverted to base', 'info');
+            }
+        }
+
+        // Add project
+        function handleAddProject(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('project-name').value.trim();
+            const path = document.getElementById('project-path').value.trim();
+            const aiContext = document.getElementById('project-ai-context').value.trim();
+            const color = document.getElementById('project-color').value;
+
+            const project = {
+                id: Date.now().toString(),
+                name,
+                path,
+                aiContext,
+                color,
+                createdAt: new Date().toISOString()
+            };
+
+            projects.push(project);
+
+            // Don't automatically add existing features to new project
+            // Users can manually add features to the new project as needed
+
+            saveData();
+            closeModal('add-project');
+            renderNav();
+            renderAllViews();
+            showToast('Project added successfully!');
+            e.target.reset();
+        }
+
+        // Render navigation
+        function renderNav() {
+            const nav = document.getElementById('nav-tabs');
+
+            // Keep unified view tab
+            const unifiedTab = nav.querySelector('.nav-tab');
+            nav.innerHTML = '';
+            nav.appendChild(unifiedTab);
+
+            // Add project tabs
+            projects.forEach(project => {
+                const tab = document.createElement('button');
+                tab.className = 'nav-tab';
+                tab.textContent = `📁 ${project.name}`;
+                tab.onclick = () => switchView(project.id);
+                nav.appendChild(tab);
+            });
+        }
+
+        // Switch view
+        function switchView(viewId) {
+            // Update tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update views
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.remove('active');
+            });
+
+            if (viewId === 'unified') {
+                document.getElementById('unified-view').classList.add('active');
+            } else {
+                const projectView = document.getElementById(`view-${viewId}`);
+                if (projectView) {
+                    projectView.classList.add('active');
+                }
+            }
+        }
+
+        // Render all views
+        function renderAllViews() {
+            renderUnifiedView();
+            renderProjectViews();
+        }
+
+        // Render unified view
+        function renderUnifiedView() {
+            const grid = document.getElementById('unified-grid');
+
+            if (projects.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>No Projects Yet</h3>
+                        <p>Add your first project to get started!</p>
+                        <button class="btn btn-primary" onclick="openModal('add-project')">Add Project</button>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = '';
+
+            projects.forEach(project => {
+                const stats = getProjectStats(project.id);
+                const progressPercent = stats.total > 0 ? (stats.done / stats.total * 100).toFixed(0) : 0;
+
+                const card = document.createElement('div');
+                card.className = 'project-board-mini';
+                card.innerHTML = `
+                    <h3>
+                        <span style="color: ${project.color}">●</span>
+                        ${escapeHtml(project.name)}
+                    </h3>
+                    <div class="mini-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <div class="progress-text">${progressPercent}% Complete</div>
+                    </div>
+                    <div class="mini-stats">
+                        <div class="mini-stat">
+                            <div class="mini-stat-value">${stats.backlog}</div>
+                            <div class="mini-stat-label">Backlog</div>
+                        </div>
+                        <div class="mini-stat">
+                            <div class="mini-stat-value">${stats.inProgress}</div>
+                            <div class="mini-stat-label">In Progress</div>
+                        </div>
+                        <div class="mini-stat">
+                            <div class="mini-stat-value">${stats.done}</div>
+                            <div class="mini-stat-label">Done</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-small" style="width: 100%" onclick="switchView('${project.id}'); document.querySelector('[onclick*=\\'${project.id}\\']').click()">
+                        View Board
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Render project views
+        function renderProjectViews() {
+            const container = document.getElementById('project-views');
+            container.innerHTML = '';
+
+            projects.forEach(project => {
+                const view = document.createElement('div');
+                view.id = `view-${project.id}`;
+                view.className = 'view';
+                view.innerHTML = `
+                    <div class="board-container">
+                        <div class="board-header">
+                            <h2 class="board-title" style="color: ${project.color}">${escapeHtml(project.name)}</h2>
+                            <div class="board-stats">
+                                ${renderProjectStats(project.id)}
+                            </div>
+                        </div>
+                        <div class="kanban-board">
+                            ${renderColumn(project.id, 'backlog', '📋 Backlog')}
+                            ${renderColumn(project.id, 'in_progress', '🚧 In Progress')}
+                            ${renderColumn(project.id, 'done', '✅ Done')}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(view);
+            });
+        }
+
+        // Render column
+        function renderColumn(projectId, status, title) {
+            const columnFeatures = features.filter(f =>
+                featureStatus[f.id]?.[projectId] === status
+            );
+
+            // Add "Add Feature" button only to backlog column
+            const addFeatureBtn = status === 'backlog'
+                ? `<button class="btn btn-icon btn-small" onclick="openModal('add-feature', '${projectId}')" title="Add Feature">➕</button>`
+                : '';
+
+            return `
+                <div class="kanban-column column-${status}" data-project="${projectId}" data-status="${status}">
+                    <div class="column-header">
+                        <div class="column-title">${title}</div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div class="column-count">${columnFeatures.length}</div>
+                            ${addFeatureBtn}
+                        </div>
+                    </div>
+                    <div class="column-cards" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+                        ${columnFeatures.map(f => renderFeatureCard(f, projectId)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render feature card
+        function renderFeatureCard(feature, projectId) {
+            return `
+                <div class="feature-card"
+                     draggable="true"
+                     data-feature="${feature.id}"
+                     data-project="${projectId}"
+                     ondragstart="handleDragStart(event)">
+                    ${feature.isVariant ? `
+                        <div class="variant-badge">
+                            ✨ Contextualized for ${escapeHtml(feature.contextualizedFor)}
+                        </div>
+                    ` : ''}
+                    <div class="card-header">
+                        <div class="card-title">${escapeHtml(feature.title)}</div>
+                    </div>
+                    ${feature.description ? `<div class="card-description">${escapeHtml(feature.description)}</div>` : ''}
+                    <div class="card-prompt">${escapeHtml(feature.prompt)}</div>
+                    <div class="card-footer">
+                        <div class="card-tags">
+                            ${feature.tags.map(tag => `<span class="card-tag">${escapeHtml(tag)}</span>`).join('')}
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-icon btn-small" onclick="copyPrompt('${feature.id}')" title="Copy Prompt">
+                                📋
+                            </button>
+                            <button class="btn btn-icon btn-small" onclick="deleteFeature('${feature.id}')" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render project stats
+        function renderProjectStats(projectId) {
+            const stats = getProjectStats(projectId);
+            return `
+                <div class="stat-badge">
+                    <span class="label">Total:</span>
+                    <span class="value">${stats.total}</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="label">In Progress:</span>
+                    <span class="value">${stats.inProgress}</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="label">Completed:</span>
+                    <span class="value">${stats.done}</span>
+                </div>
+            `;
+        }
+
+        // Get project stats
+        function getProjectStats(projectId) {
+            let backlog = 0, inProgress = 0, done = 0;
+
+            features.forEach(feature => {
+                const status = featureStatus[feature.id]?.[projectId];
+                if (status === 'backlog') backlog++;
+                else if (status === 'in_progress') inProgress++;
+                else if (status === 'done') done++;
+            });
+
+            return {
+                total: features.length,
+                backlog,
+                inProgress,
+                done
+            };
+        }
+
+        // Drag and drop
+        let draggedFeature = null;
+        let draggedProject = null;
+
+        function setupDragAndDrop() {
+            // Already handled via inline handlers
+        }
+
+        function handleDragStart(e) {
+            draggedFeature = e.target.dataset.feature;
+            draggedProject = e.target.dataset.project;
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+
+            const column = e.target.closest('.kanban-column');
+            if (!column) return;
+
+            const newStatus = column.dataset.status;
+            const projectId = column.dataset.project;
+
+            if (draggedFeature && draggedProject === projectId) {
+                featureStatus[draggedFeature][projectId] = newStatus;
+                saveData();
+                renderAllViews();
+                showToast('Feature moved successfully!');
+            }
+
+            // Clean up
+            document.querySelectorAll('.dragging').forEach(el => {
+                el.classList.remove('dragging');
+            });
+        }
+
+        // Copy prompt
+        function copyPrompt(featureId) {
+            const feature = features.find(f => f.id === featureId);
+            if (!feature) return;
+
+            navigator.clipboard.writeText(feature.prompt).then(() => {
+                showToast('Prompt copied to clipboard!');
+            });
+        }
+
+        // Delete feature
+        function deleteFeature(featureId) {
+            if (!confirm('Delete this feature from all projects?')) return;
+
+            features = features.filter(f => f.id !== featureId);
+            delete featureStatus[featureId];
+            saveData();
+            renderAllViews();
+            showToast('Feature deleted');
+        }
+
+        // Modal
+        function openModal(modalId, preselectedProjectId = null) {
+            const modal = document.getElementById(`${modalId}-modal`);
+            modal.classList.add('show');
+
+            // If opening add-feature modal, populate project checkboxes
+            if (modalId === 'add-feature') {
+                populateProjectCheckboxes(preselectedProjectId);
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(`${modalId}-modal`).classList.remove('show');
+        }
+
+        // Populate project checkboxes in Add Feature modal
+        function populateProjectCheckboxes(preselectedProjectId = null) {
+            const container = document.getElementById('project-checkboxes');
+
+            if (projects.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 1rem;">No projects available. Please add a project first.</p>';
+                return;
+            }
+
+            container.innerHTML = projects.map(project => `
+                <div class="project-checkbox-item">
+                    <input type="checkbox"
+                           id="project-${project.id}"
+                           value="${project.id}"
+                           class="project-checkbox"
+                           ${preselectedProjectId === project.id ? 'checked' : ''}>
+                    <label for="project-${project.id}">
+                        <span class="project-color-dot" style="background-color: ${project.color}"></span>
+                        <span>${escapeHtml(project.name)}</span>
+                    </label>
+                </div>
+            `).join('');
+
+            // Add event listeners to all checkboxes
+            document.querySelectorAll('.project-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateContextualizationChoice);
+            });
+
+            // Initialize the contextualization choice visibility
+            updateContextualizationChoice();
+        }
+
+        // Update contextualization choice visibility based on selected projects
+        function updateContextualizationChoice() {
+            const selectedCount = document.querySelectorAll('.project-checkbox:checked').length;
+            const contextChoice = document.getElementById('contextualization-choice');
+            const contextualizeOption = document.getElementById('contextualize-option');
+            const contextualizeRadio = document.getElementById('contextualize-radio');
+
+            // Show contextualization choice only if 2+ projects selected
+            if (selectedCount > 1) {
+                contextChoice.style.display = 'block';
+
+                // Disable AI option if Ollama is offline
+                if (ollamaStatus !== 'connected') {
+                    contextualizeRadio.disabled = true;
+                    contextualizeOption.style.opacity = '0.5';
+                    contextualizeOption.style.cursor = 'not-allowed';
+                    contextualizeOption.title = 'Requires active Ollama connection';
+
+                    // If contextualize was selected, switch to identical
+                    if (contextualizeRadio.checked) {
+                        document.querySelector('input[name="creation-mode"][value="identical"]').checked = true;
+                    }
+                } else {
+                    contextualizeRadio.disabled = false;
+                    contextualizeOption.style.opacity = '1';
+                    contextualizeOption.style.cursor = 'pointer';
+                    contextualizeOption.title = '';
+                }
+            } else {
+                contextChoice.style.display = 'none';
+            }
+        }
+
+        // Toast
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Export
+        function exportData() {
+            const data = {
+                features,
+                projects,
+                featureStatus,
+                exportedAt: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kanban-export-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('Data exported successfully!');
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // AI Enhancement Functions
+
+        // Load settings into form
+        function loadSettingsForm() {
+            const urlInput = document.getElementById('ollama-url');
+            const modelInput = document.getElementById('ollama-model');
+            const promptInput = document.getElementById('enhancement-prompt');
+            const contextPromptInput = document.getElementById('contextualization-prompt');
+
+            if (urlInput) urlInput.value = aiSettings.ollamaUrl;
+            if (modelInput) modelInput.value = aiSettings.model;
+            if (promptInput) promptInput.value = aiSettings.systemPrompt;
+            if (contextPromptInput) contextPromptInput.value = aiSettings.contextualizationPrompt || aiSettings.contextualizationPrompt;
+        }
+
+        // Save AI settings
+        function saveSettings() {
+            aiSettings.ollamaUrl = document.getElementById('ollama-url').value.trim();
+            aiSettings.model = document.getElementById('ollama-model').value.trim();
+            aiSettings.systemPrompt = document.getElementById('enhancement-prompt').value.trim();
+            aiSettings.contextualizationPrompt = document.getElementById('contextualization-prompt').value.trim();
+
+            saveData();
+            showToast('AI settings saved successfully!');
+            closeModal('settings');
+        }
+
+        // Test Ollama connection
+        async function testOllamaConnection() {
+            const url = document.getElementById('ollama-url').value.trim();
+            const model = document.getElementById('ollama-model').value.trim();
+
+            try {
+                showToast('Testing connection to Ollama...', 'info');
+
+                const response = await fetch(`${url}/api/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        prompt: 'test',
+                        stream: false
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('✅ Successfully connected to Ollama!');
+                } else {
+                    showToast(`❌ Connection failed: ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showToast(`❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Enhance prompt with AI
+        async function enhancePromptWithAI() {
+            const promptTextarea = document.getElementById('feature-prompt');
+            const enhanceBtn = document.getElementById('enhance-btn');
+            const revertBtn = document.getElementById('revert-btn');
+            const statusText = document.getElementById('enhancement-status');
+
+            const currentPrompt = promptTextarea.value.trim();
+
+            if (!currentPrompt) {
+                showToast('Please enter a prompt first', 'error');
+                return;
+            }
+
+            // Save original prompt for revert
+            originalPrompt = currentPrompt;
+
+            // Get selected projects for context
+            const selectedProjectIds = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            let projectContext = '';
+            if (selectedProjectIds.length > 0) {
+                const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
+                projectContext = '\n\nProject Context:\n';
+                selectedProjects.forEach(project => {
+                    projectContext += `- Project: ${project.name}\n`;
+                    if (project.path) {
+                        projectContext += `  Path: ${project.path}\n`;
+                    }
+                });
+            }
+
+            // Update UI to loading state
+            enhanceBtn.disabled = true;
+            enhanceBtn.innerHTML = '⏳ Enhancing...';
+            statusText.style.display = 'block';
+            statusText.style.color = 'var(--info)';
+            statusText.textContent = 'AI is enhancing your prompt with project context...';
+
+            try {
+                const fullPrompt = `${aiSettings.systemPrompt}${projectContext}\n\nOriginal request: ${currentPrompt}\n\nEnhanced prompt:`;
+
+                const response = await fetch(`${aiSettings.ollamaUrl}/api/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: aiSettings.model,
+                        prompt: fullPrompt,
+                        stream: false
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Ollama API error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const enhancedPrompt = data.response.trim();
+
+                // Update textarea with enhanced prompt
+                promptTextarea.value = enhancedPrompt;
+
+                // Show success
+                statusText.style.color = 'var(--success)';
+                statusText.textContent = '✅ Prompt enhanced! You can edit or revert.';
+                revertBtn.style.display = 'inline-flex';
+
+                showToast('Prompt enhanced successfully!');
+
+            } catch (error) {
+                statusText.style.color = 'var(--danger)';
+                statusText.textContent = `❌ Enhancement failed: ${error.message}`;
+                showToast(`Failed to enhance prompt: ${error.message}`, 'error');
+
+                // Show helpful message about Ollama
+                if (error.message.includes('Failed to fetch')) {
+                    setTimeout(() => {
+                        showToast('Make sure Ollama is running (ollama serve)', 'error');
+                    }, 3000);
+                }
+            } finally {
+                // Reset button
+                enhanceBtn.disabled = false;
+                enhanceBtn.innerHTML = '✨ Enhance with AI';
+            }
+        }
+
+        // Revert to original prompt
+        function revertPrompt() {
+            const promptTextarea = document.getElementById('feature-prompt');
+            const revertBtn = document.getElementById('revert-btn');
+            const statusText = document.getElementById('enhancement-status');
+
+            if (originalPrompt) {
+                promptTextarea.value = originalPrompt;
+                revertBtn.style.display = 'none';
+                statusText.style.display = 'none';
+                showToast('Prompt reverted to original');
+            }
+        }
+
+        // Ollama Status Functions
+
+        // Check Ollama connection status
+        async function checkOllamaStatus() {
+            const statusElement = document.getElementById('ollama-status');
+            const statusText = statusElement.querySelector('.status-text');
+
+            console.log('[Ollama Status] Checking connection to:', aiSettings.ollamaUrl);
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+                const response = await fetch(`${aiSettings.ollamaUrl}/api/tags`, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                clearTimeout(timeoutId);
+
+                console.log('[Ollama Status] Response status:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[Ollama Status] Connected! Models:', data.models?.length || 0);
+
+                    ollamaStatus = 'connected';
+                    statusElement.className = 'ollama-status connected';
+                    statusText.textContent = 'Ollama Ready';
+                    statusElement.title = `Connected - ${data.models?.length || 0} models available`;
+                } else {
+                    console.warn('[Ollama Status] HTTP Error:', response.status, response.statusText);
+                    ollamaStatus = 'disconnected';
+                    statusElement.className = 'ollama-status disconnected';
+                    statusText.textContent = 'Ollama Error';
+                    statusElement.title = `HTTP Error: ${response.status}`;
+                }
+            } catch (error) {
+                console.error('[Ollama Status] Connection failed:', error.name, error.message);
+
+                // Provide more specific error messages
+                let errorMsg = 'Ollama Off';
+                let errorDetail = error.message;
+
+                if (error.name === 'AbortError') {
+                    errorMsg = 'Timeout';
+                    errorDetail = 'Connection timed out';
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMsg = 'Can\'t Connect';
+                    errorDetail = 'CORS or network issue - try opening settings';
+                }
+
+                ollamaStatus = 'disconnected';
+                statusElement.className = 'ollama-status disconnected';
+                statusText.textContent = errorMsg;
+                statusElement.title = `Error: ${errorDetail} - Click for help`;
+            }
+        }
+
+        // Handle status indicator click
+        function handleOllamaStatusClick() {
+            const helperContent = document.getElementById('ollama-helper-content');
+
+            if (ollamaStatus === 'connected') {
+                // Show connected status with model info
+                helperContent.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+                        <h3 style="color: var(--success); margin-bottom: 1rem;">Ollama is Running</h3>
+                        <p style="color: var(--text-light); margin-bottom: 1rem;">
+                            Connected to ${aiSettings.ollamaUrl}
+                        </p>
+                        <p style="color: var(--text-light); margin-bottom: 1.5rem;">
+                            Using model: <strong>${aiSettings.model}</strong>
+                        </p>
+                        <button class="btn btn-primary" onclick="closeModal('ollama-helper')">
+                            Close
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Show disconnected status with start instructions
+                helperContent.innerHTML = `
+                    <div style="padding: 1rem;">
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+                            <h3 style="color: var(--danger); margin-bottom: 0.5rem;">Ollama is Not Running</h3>
+                            <p style="color: var(--text-light);">
+                                Start Ollama to use AI prompt enhancement
+                            </p>
+                        </div>
+
+                        <div style="background: var(--bg-light); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 1rem; color: var(--text-dark);">Quick Start:</h4>
+                            <ol style="margin-left: 1.5rem; color: var(--text-light); line-height: 1.8;">
+                                <li>Open a new terminal window</li>
+                                <li>Run the command below</li>
+                                <li>Wait for Ollama to start</li>
+                                <li>The indicator will turn green</li>
+                            </ol>
+                        </div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-dark);">
+                                Terminal Command:
+                            </label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text"
+                                       value="OLLAMA_ORIGINS=* ollama serve"
+                                       id="ollama-command"
+                                       readonly
+                                       style="flex: 1; font-family: monospace; background: var(--bg-light);">
+                                <button class="btn btn-secondary" onclick="copyOllamaCommand()">
+                                    📋 Copy
+                                </button>
+                            </div>
+                            <small style="color: var(--text-light); margin-top: 0.25rem; display: block;">
+                                (CORS enabled for browser access)
+                            </small>
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-primary" onclick="startOllamaInTerminal()">
+                                🚀 Open Terminal & Start
+                            </button>
+                            <button class="btn btn-secondary" onclick="checkOllamaStatus(); closeModal('ollama-helper')">
+                                🔄 Recheck
+                            </button>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(66, 153, 225, 0.1); border-radius: 6px; border-left: 4px solid var(--info);">
+                            <p style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.5rem;">
+                                <strong>CORS Issue?</strong>
+                            </p>
+                            <p style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.5rem;">
+                                If Ollama is running but status shows "Can't Connect", set CORS:
+                            </p>
+                            <div style="background: var(--bg-dark); padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                                <code style="font-size: 0.75rem; color: white; font-family: monospace;">
+                                    OLLAMA_ORIGINS=* ollama serve
+                                </code>
+                            </div>
+                            <p style="font-size: 0.875rem; color: var(--text-light);">
+                                Or install from <a href="https://ollama.com" target="_blank" style="color: var(--primary); text-decoration: underline;">ollama.com</a>
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            openModal('ollama-helper');
+        }
+
+        // Copy Ollama command to clipboard
+        function copyOllamaCommand() {
+            const command = document.getElementById('ollama-command').value;
+            navigator.clipboard.writeText(command).then(() => {
+                showToast('Command copied to clipboard!');
+            });
+        }
+
+        // Start Ollama in a new terminal
+        function startOllamaInTerminal() {
+            // Use CORS-enabled command
+            const ollamaCommand = 'OLLAMA_ORIGINS=* ollama serve';
+
+            // Try to open gnome-terminal (won't work from browser but let's try)
+            const terminalCommand = `gnome-terminal -- bash -c "echo 'Starting Ollama with CORS enabled...'; echo 'This terminal will show Ollama logs.'; echo 'Keep it open while using AI features.'; echo ''; ${ollamaCommand}; exec bash"`;
+
+            // Create a temporary element to attempt opening terminal
+            const link = document.createElement('a');
+            link.href = `x-terminal-emulator://run?command=${encodeURIComponent(ollamaCommand)}`;
+            link.click();
+
+            // Show instructions since browser can't directly open terminal
+            setTimeout(() => {
+                showToast('Copy and run the command in your terminal', 'info');
+
+                // Update the command in the modal
+                const cmdInput = document.getElementById('ollama-command');
+                if (cmdInput) {
+                    cmdInput.value = ollamaCommand;
+                }
+
+                // Copy to clipboard
+                navigator.clipboard.writeText(ollamaCommand).then(() => {
+                    showToast('Command copied! Paste it in your terminal', 'success');
+                });
+            }, 500);
+
+            // Start checking status more frequently
+            setTimeout(() => {
+                checkOllamaStatus();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
