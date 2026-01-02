@@ -9,7 +9,7 @@
 
 | Service | URL | Status |
 |---------|-----|--------|
-| **Production App** | https://mykanban-[unique-id].vercel.app | ⏳ Pending Deploy |
+| **Production App** | https://mykanban-alpha.vercel.app | ✅ Live |
 | **Vercel Dashboard** | https://vercel.com/h-viks-projects/mykanban | ✅ Active |
 | **Vercel Project ID** | prj_ebnDGxIXJ1oK7fEYqKukSX5VQxPC | - |
 | **Railway API** | https://mykanban-production.up.railway.app | ✅ Running |
