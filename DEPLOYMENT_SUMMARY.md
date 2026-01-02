@@ -9,8 +9,9 @@
 
 | Service | URL | Status |
 |---------|-----|--------|
-| **Production App** | https://my-kanban.vercel.app | ✅ Live |
-| **Vercel Dashboard** | https://vercel.com/h-viks-projects/my-kanban | ✅ Active |
+| **Production App** | https://mykanban-[unique-id].vercel.app | ⏳ Pending Deploy |
+| **Vercel Dashboard** | https://vercel.com/h-viks-projects/mykanban | ✅ Active |
+| **Vercel Project ID** | prj_ebnDGxIXJ1oK7fEYqKukSX5VQxPC | - |
 | **Railway API** | https://mykanban-production.up.railway.app | ✅ Running |
 | **GitHub Repository** | https://github.com/BoardGuruHV/MyKanban | ✅ Public |
 
@@ -203,4 +204,5 @@ See `DEPLOYMENT.md` for detailed troubleshooting guide.
 ---
 
 *Generated: 2026-01-01*
+*Updated: 2026-01-02 14:15 UTC (Vercel deployment trigger)*
 *Repository: https://github.com/BoardGuruHV/MyKanban*
