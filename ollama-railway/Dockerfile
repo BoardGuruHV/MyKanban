@@ -14,5 +14,6 @@ EXPOSE 11434
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Start Ollama and pull model
-CMD ["/start.sh"]
+# Override entrypoint and start Ollama with our script
+ENTRYPOINT []
+CMD ["/bin/bash", "/start.sh"]
