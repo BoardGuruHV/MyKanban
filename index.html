@@ -858,6 +858,72 @@
             color: #9ca3af;
         }
 
+        .card-due-date {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .due-overdue {
+            background: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .due-today {
+            background: rgba(249, 115, 22, 0.15);
+            color: #ea580c;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .due-tomorrow {
+            background: rgba(245, 158, 11, 0.15);
+            color: #d97706;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .due-soon {
+            background: rgba(59, 130, 246, 0.15);
+            color: #2563eb;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .due-future {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6b7280;
+            border: 1px solid rgba(107, 114, 128, 0.2);
+        }
+
+        body.dark-mode .due-overdue {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        body.dark-mode .due-today {
+            background: rgba(249, 115, 22, 0.2);
+            color: #fb923c;
+        }
+
+        body.dark-mode .due-tomorrow {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        body.dark-mode .due-soon {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+
+        body.dark-mode .due-future {
+            background: rgba(107, 114, 128, 0.15);
+            color: #9ca3af;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .kanban-board {
@@ -944,6 +1010,8 @@
                     <option value="z-a">🔤 Z-A</option>
                     <option value="priority-high">⚡ Priority: High to Low</option>
                     <option value="priority-low">⚡ Priority: Low to High</option>
+                    <option value="due-soon">📆 Due Date: Soonest First</option>
+                    <option value="due-later">📆 Due Date: Latest First</option>
                 </select>
             </div>
         </div>
@@ -1016,6 +1084,10 @@
                             <option value="high">High</option>
                             <option value="critical">Critical</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Due Date (optional)</label>
+                        <input type="date" id="feature-due-date">
                     </div>
                     <div class="form-group">
                         <label>Add to Projects *</label>
@@ -1682,6 +1754,7 @@ Output ONLY the adapted prompt, no explanations.`
             const basePrompt = document.getElementById('feature-prompt').value.trim();
             const tags = document.getElementById('feature-tags').value.trim().split(',').map(t => t.trim()).filter(Boolean);
             const priority = document.getElementById('feature-priority').value;
+            const dueDate = document.getElementById('feature-due-date').value || null;
 
             // Get selected projects
             const selectedProjects = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
@@ -1695,7 +1768,7 @@ Output ONLY the adapted prompt, no explanations.`
 
             // Check if we're editing
             if (editingFeatureId) {
-                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, selectedProjects);
+                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, selectedProjects);
                 return;
             }
 
@@ -1705,15 +1778,15 @@ Output ONLY the adapted prompt, no explanations.`
             // Route based on creation mode
             if (creationMode === 'identical' || selectedProjects.length === 1) {
                 // Original behavior: one feature for all projects
-                createIdenticalFeature(title, description, basePrompt, tags, priority, selectedProjects);
+                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, selectedProjects);
             } else {
                 // New behavior: contextualize for each project
-                await createContextualizedFeatures(title, description, basePrompt, tags, priority, selectedProjects);
+                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, selectedProjects);
             }
         }
 
         // Update existing feature
-        function updateFeature(featureId, title, description, prompt, tags, priority, selectedProjects) {
+        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, selectedProjects) {
             const feature = features.find(f => f.id === featureId);
             if (!feature) return;
 
@@ -1726,6 +1799,7 @@ Output ONLY the adapted prompt, no explanations.`
             feature.prompt = prompt;
             feature.tags = tags;
             feature.priority = priority || 'medium';
+            feature.dueDate = dueDate;
 
             // Update project associations
             featureStatus[featureId] = {};
@@ -1742,7 +1816,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create identical feature for all selected projects
-        function createIdenticalFeature(title, description, prompt, tags, priority, selectedProjects) {
+        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, selectedProjects) {
             // Save state for undo
             saveState();
 
@@ -1753,6 +1827,7 @@ Output ONLY the adapted prompt, no explanations.`
                 prompt,
                 tags,
                 priority: priority || 'medium',
+                dueDate: dueDate,
                 createdAt: new Date().toISOString(),
                 // New fields for backward compatibility
                 isVariant: false,
@@ -1778,7 +1853,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create contextualized features for multiple projects
-        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, selectedProjectIds) {
+        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, selectedProjectIds) {
             const variantGroupId = `variant-${Date.now()}`;
             const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
 
@@ -1827,6 +1902,7 @@ Output ONLY the adapted prompt, no explanations.`
                 basePrompt,
                 tags,
                 priority,
+                dueDate,
                 variantGroupId,
                 variantPrompts
             };
@@ -1893,7 +1969,7 @@ CONTEXTUALIZED PROMPT:`;
             // Save state for undo
             saveState();
 
-            const { title, description, basePrompt, tags, priority, variantGroupId, variantPrompts } = window.pendingVariants;
+            const { title, description, basePrompt, tags, priority, dueDate, variantGroupId, variantPrompts } = window.pendingVariants;
 
             // Create feature object for each variant
             Object.entries(variantPrompts).forEach(([projectId, variantData], index) => {
@@ -1908,6 +1984,7 @@ CONTEXTUALIZED PROMPT:`;
                     prompt: finalPrompt,  // Use edited prompt from preview
                     tags,
                     priority: priority || 'medium',
+                    dueDate: dueDate,
                     createdAt: new Date().toISOString(),
                     isVariant: true,
                     variantGroupId: variantGroupId,
@@ -2298,6 +2375,12 @@ CONTEXTUALIZED PROMPT:`;
                         <span class="priority-badge priority-${feature.priority || 'medium'}">${(feature.priority || 'medium').toUpperCase()}</span>
                     </div>
                     ${feature.description ? `<div class="card-description">${escapeHtml(feature.description)}</div>` : ''}
+                    ${feature.dueDate ? (() => {
+                        const dueDateInfo = formatDueDate(feature.dueDate);
+                        return `<div class="card-due-date due-${dueDateInfo.status}">
+                            📅 ${dueDateInfo.label}
+                        </div>`;
+                    })() : ''}
                     <div class="card-prompt">${escapeHtml(feature.prompt)}</div>
                     <div class="card-footer">
                         <div class="card-tags">
@@ -2442,6 +2525,7 @@ CONTEXTUALIZED PROMPT:`;
             document.getElementById('feature-prompt').value = feature.prompt;
             document.getElementById('feature-tags').value = feature.tags.join(', ');
             document.getElementById('feature-priority').value = feature.priority || 'medium';
+            document.getElementById('feature-due-date').value = feature.dueDate || '';
 
             // Get projects this feature belongs to
             const featureProjects = Object.keys(featureStatus[featureId] || {});
@@ -2548,6 +2632,24 @@ CONTEXTUALIZED PROMPT:`;
                         const aPriority = priorityOrder[a.priority || 'medium'];
                         const bPriority = priorityOrder[b.priority || 'medium'];
                         return aPriority - bPriority;
+                    });
+                    break;
+                case 'due-soon':
+                    sorted.sort((a, b) => {
+                        // Items with no due date go to the end
+                        if (!a.dueDate && !b.dueDate) return 0;
+                        if (!a.dueDate) return 1;
+                        if (!b.dueDate) return -1;
+                        return new Date(a.dueDate) - new Date(b.dueDate);
+                    });
+                    break;
+                case 'due-later':
+                    sorted.sort((a, b) => {
+                        // Items with no due date go to the end
+                        if (!a.dueDate && !b.dueDate) return 0;
+                        if (!a.dueDate) return 1;
+                        if (!b.dueDate) return -1;
+                        return new Date(b.dueDate) - new Date(a.dueDate);
                     });
                     break;
             }
@@ -2732,6 +2834,33 @@ CONTEXTUALIZED PROMPT:`;
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Date helper functions
+        function formatDueDate(dueDate) {
+            if (!dueDate) return null;
+            const date = new Date(dueDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const due = new Date(date);
+            due.setHours(0, 0, 0, 0);
+
+            const diffTime = due - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            if (diffDays < 0) {
+                return { text: formatted, status: 'overdue', label: `Overdue (${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''})` };
+            } else if (diffDays === 0) {
+                return { text: formatted, status: 'today', label: 'Due Today' };
+            } else if (diffDays === 1) {
+                return { text: formatted, status: 'tomorrow', label: 'Due Tomorrow' };
+            } else if (diffDays <= 7) {
+                return { text: formatted, status: 'soon', label: `Due in ${diffDays} days` };
+            } else {
+                return { text: formatted, status: 'future', label: `Due ${formatted}` };
+            }
         }
 
         // AI Enhancement Functions
