@@ -13,6 +13,7 @@
 | **Vercel Dashboard** | https://vercel.com/h-viks-projects/mykanban | ✅ Active |
 | **Vercel Project ID** | prj_ebnDGxIXJ1oK7fEYqKukSX5VQxPC | - |
 | **Railway API** | https://mykanban-production.up.railway.app | ✅ Running |
+| **Railway Ollama** | https://meticulous-spirit-production.up.railway.app | ✅ Running |
 | **GitHub Repository** | https://github.com/BoardGuruHV/MyKanban | ✅ Public |
 
 ---
@@ -41,10 +42,10 @@
 - ✅ localStorage persistence
 - ✅ Responsive design (mobile/tablet/desktop)
 
-### Features Pending Setup
-- ✅ AI prompt enhancement (tested locally with Ollama - works!)
-- ✅ AI contextualization (tested locally with Ollama - works!)
-- ⏳ Production Ollama deployment (optional - can use local)
+### AI Features (Production Ready!)
+- ✅ AI prompt enhancement (deployed on Railway - llama3 8B)
+- ✅ AI contextualization (deployed on Railway - llama3 8B)
+- ✅ Production Ollama service (meticulous-spirit-production.up.railway.app)
 
 ---
 
