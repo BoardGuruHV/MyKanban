@@ -1133,6 +1133,82 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let sortOrder = 'newest'; // Sort order
         let selectedFeatures = new Set(); // Bulk selection
 
+        // Undo/Redo
+        let history = [];
+        let historyIndex = -1;
+        const MAX_HISTORY = 50;
+        let isUndoRedoAction = false;
+
+        function saveState() {
+            if (isUndoRedoAction) return;
+
+            const state = {
+                features: JSON.parse(JSON.stringify(features)),
+                projects: JSON.parse(JSON.stringify(projects)),
+                featureStatus: JSON.parse(JSON.stringify(featureStatus))
+            };
+
+            // Remove any future history if we're not at the end
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1);
+            }
+
+            history.push(state);
+
+            // Limit history size
+            if (history.length > MAX_HISTORY) {
+                history.shift();
+            } else {
+                historyIndex++;
+            }
+        }
+
+        function undo() {
+            if (historyIndex <= 0) {
+                showToast('Nothing to undo', 'error');
+                return;
+            }
+
+            historyIndex--;
+            isUndoRedoAction = true;
+
+            const state = history[historyIndex];
+            features = JSON.parse(JSON.stringify(state.features));
+            projects = JSON.parse(JSON.stringify(state.projects));
+            featureStatus = JSON.parse(JSON.stringify(state.featureStatus));
+
+            saveData();
+            renderNav();
+            renderAllViews();
+            clearSelection();
+
+            isUndoRedoAction = false;
+            showToast('Undo successful');
+        }
+
+        function redo() {
+            if (historyIndex >= history.length - 1) {
+                showToast('Nothing to redo', 'error');
+                return;
+            }
+
+            historyIndex++;
+            isUndoRedoAction = true;
+
+            const state = history[historyIndex];
+            features = JSON.parse(JSON.stringify(state.features));
+            projects = JSON.parse(JSON.stringify(state.projects));
+            featureStatus = JSON.parse(JSON.stringify(state.featureStatus));
+
+            saveData();
+            renderNav();
+            renderAllViews();
+            clearSelection();
+
+            isUndoRedoAction = false;
+            showToast('Redo successful');
+        }
+
         // Dark mode
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
@@ -1202,6 +1278,20 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                 return;
             }
 
+            // Ctrl/Cmd + Z: Undo
+            if (modifier && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+                return;
+            }
+
+            // Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y: Redo
+            if (modifier && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redo();
+                return;
+            }
+
             // Ctrl/Cmd + A: Select all visible features
             if (modifier && e.key === 'a') {
                 e.preventDefault();
@@ -1259,6 +1349,8 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                 { key: `${mod} + N`, action: 'Add new feature' },
                 { key: `${mod} + P`, action: 'Add new project' },
                 { key: `${mod} + D`, action: 'Toggle dark mode' },
+                { key: `${mod} + Z`, action: 'Undo last action' },
+                { key: `${mod} + Shift + Z`, action: 'Redo action' },
                 { key: `${mod} + A`, action: 'Select all visible features' },
                 { key: '1-9', action: 'Switch to tab (1 = first tab)' },
                 { key: '← →', action: 'Navigate between tabs' },
@@ -1377,6 +1469,9 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                 return;
             }
 
+            // Save state for undo
+            saveState();
+
             const count = selectedFeatures.size;
             selectedFeatures.forEach(featureId => {
                 // Move feature in all its projects
@@ -1394,6 +1489,9 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         function bulkDeleteFeatures() {
             const count = selectedFeatures.size;
             if (!confirm(`Delete ${count} selected feature(s)?`)) return;
+
+            // Save state for undo
+            saveState();
 
             selectedFeatures.forEach(featureId => {
                 features = features.filter(f => f.id !== featureId);
@@ -1446,6 +1544,9 @@ Output ONLY the adapted prompt, no explanations.`
             loadData();
             renderNav();
             renderAllViews();
+
+            // Save initial state for undo/redo
+            saveState();
 
             // Event listeners
             document.getElementById('feature-form').addEventListener('submit', handleAddFeature);
@@ -1538,6 +1639,9 @@ Output ONLY the adapted prompt, no explanations.`
             const feature = features.find(f => f.id === featureId);
             if (!feature) return;
 
+            // Save state for undo
+            saveState();
+
             // Update feature properties
             feature.title = title;
             feature.description = description;
@@ -1560,6 +1664,9 @@ Output ONLY the adapted prompt, no explanations.`
 
         // Create identical feature for all selected projects
         function createIdenticalFeature(title, description, prompt, tags, selectedProjects) {
+            // Save state for undo
+            saveState();
+
             const feature = {
                 id: Date.now().toString(),
                 title,
@@ -1702,6 +1809,9 @@ CONTEXTUALIZED PROMPT:`;
         function confirmContextualization() {
             if (!window.pendingVariants) return;
 
+            // Save state for undo
+            saveState();
+
             const { title, description, basePrompt, tags, variantGroupId, variantPrompts } = window.pendingVariants;
 
             // Create feature object for each variant
@@ -1838,6 +1948,9 @@ CONTEXTUALIZED PROMPT:`;
         function handleAddProject(e) {
             e.preventDefault();
 
+            // Save state for undo
+            saveState();
+
             const name = document.getElementById('project-name').value.trim();
             const path = document.getElementById('project-path').value.trim();
             const aiContext = document.getElementById('project-ai-context').value.trim();
@@ -1872,6 +1985,9 @@ CONTEXTUALIZED PROMPT:`;
 
             const newName = prompt('Enter new project name:', project.name);
             if (newName && newName.trim() && newName.trim() !== project.name) {
+                // Save state for undo
+                saveState();
+
                 project.name = newName.trim();
                 saveData();
                 renderNav();
@@ -1887,6 +2003,9 @@ CONTEXTUALIZED PROMPT:`;
 
             const confirmation = confirm(`Are you sure you want to delete "${project.name}"?\n\nThis will remove all features associated with this project.`);
             if (!confirmation) return;
+
+            // Save state for undo
+            saveState();
 
             // Remove project
             projects = projects.filter(p => p.id !== projectId);
@@ -2186,6 +2305,9 @@ CONTEXTUALIZED PROMPT:`;
             const projectId = column.dataset.project;
 
             if (draggedFeature && draggedProject === projectId) {
+                // Save state for undo
+                saveState();
+
                 featureStatus[draggedFeature][projectId] = newStatus;
                 saveData();
                 renderAllViews();
@@ -2211,6 +2333,9 @@ CONTEXTUALIZED PROMPT:`;
         // Delete feature
         function deleteFeature(featureId) {
             if (!confirm('Delete this feature from all projects?')) return;
+
+            // Save state for undo
+            saveState();
 
             features = features.filter(f => f.id !== featureId);
             delete featureStatus[featureId];
