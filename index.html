@@ -290,6 +290,11 @@
             border-top: 3px solid var(--primary);
         }
 
+        .feature-card.selected {
+            border-left-color: var(--primary);
+            background: rgba(102, 126, 234, 0.05);
+        }
+
         .card-header {
             display: flex;
             justify-content: space-between;
@@ -1126,6 +1131,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let searchQuery = ''; // Search filter
         let selectedTag = ''; // Tag filter
         let sortOrder = 'newest'; // Sort order
+        let selectedFeatures = new Set(); // Bulk selection
 
         // Dark mode
         function toggleDarkMode() {
@@ -1196,6 +1202,13 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                 return;
             }
 
+            // Ctrl/Cmd + A: Select all visible features
+            if (modifier && e.key === 'a') {
+                e.preventDefault();
+                selectAllVisibleFeatures();
+                return;
+            }
+
             // ?: Show keyboard shortcuts help
             if (e.key === '?' && !modifier) {
                 e.preventDefault();
@@ -1246,6 +1259,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                 { key: `${mod} + N`, action: 'Add new feature' },
                 { key: `${mod} + P`, action: 'Add new project' },
                 { key: `${mod} + D`, action: 'Toggle dark mode' },
+                { key: `${mod} + A`, action: 'Select all visible features' },
                 { key: '1-9', action: 'Switch to tab (1 = first tab)' },
                 { key: '← →', action: 'Navigate between tabs' },
                 { key: '?', action: 'Show this help' },
@@ -1265,6 +1279,131 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                     ${shortcutsList}
                 </div>
             `, 8000);
+        }
+
+        // Bulk selection
+        function toggleFeatureSelection(featureId, event) {
+            if (event) event.stopPropagation();
+
+            if (selectedFeatures.has(featureId)) {
+                selectedFeatures.delete(featureId);
+            } else {
+                selectedFeatures.add(featureId);
+            }
+
+            updateBulkActionsToolbar();
+            updateFeatureCheckboxes();
+        }
+
+        function selectAllVisibleFeatures() {
+            const visibleFeatures = features.filter(matchesSearch);
+            visibleFeatures.forEach(f => selectedFeatures.add(f.id));
+            updateBulkActionsToolbar();
+            updateFeatureCheckboxes();
+        }
+
+        function clearSelection() {
+            selectedFeatures.clear();
+            updateBulkActionsToolbar();
+            updateFeatureCheckboxes();
+        }
+
+        function updateFeatureCheckboxes() {
+            document.querySelectorAll('.feature-checkbox').forEach(checkbox => {
+                const featureId = checkbox.dataset.featureId;
+                checkbox.checked = selectedFeatures.has(featureId);
+
+                const card = checkbox.closest('.feature-card');
+                if (card) {
+                    card.classList.toggle('selected', selectedFeatures.has(featureId));
+                }
+            });
+        }
+
+        function updateBulkActionsToolbar() {
+            let toolbar = document.getElementById('bulk-actions-toolbar');
+
+            if (selectedFeatures.size === 0) {
+                if (toolbar) toolbar.remove();
+                return;
+            }
+
+            if (!toolbar) {
+                toolbar = document.createElement('div');
+                toolbar.id = 'bulk-actions-toolbar';
+                toolbar.style.cssText = `
+                    position: fixed;
+                    bottom: 2rem;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: var(--primary);
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 12px;
+                    box-shadow: var(--shadow-lg);
+                    display: flex;
+                    gap: 1rem;
+                    align-items: center;
+                    z-index: 1000;
+                    animation: slideUp 0.3s ease;
+                `;
+                document.body.appendChild(toolbar);
+            }
+
+            toolbar.innerHTML = `
+                <span style="font-weight: 600;">${selectedFeatures.size} selected</span>
+                <select id="bulk-move-status" style="padding: 0.5rem; border-radius: 6px; border: none;">
+                    <option value="">Move to...</option>
+                    <option value="backlog">📋 Backlog</option>
+                    <option value="in_progress">🚧 In Progress</option>
+                    <option value="done">✅ Done</option>
+                </select>
+                <button onclick="bulkMoveFeatures()" class="btn btn-secondary btn-small" style="background: white; color: var(--primary);">
+                    Move
+                </button>
+                <button onclick="bulkDeleteFeatures()" class="btn btn-danger btn-small">
+                    Delete
+                </button>
+                <button onclick="clearSelection()" class="btn btn-secondary btn-small" style="background: rgba(255,255,255,0.2);">
+                    Clear
+                </button>
+            `;
+        }
+
+        function bulkMoveFeatures() {
+            const status = document.getElementById('bulk-move-status')?.value;
+            if (!status) {
+                showToast('Please select a status to move to', 'error');
+                return;
+            }
+
+            const count = selectedFeatures.size;
+            selectedFeatures.forEach(featureId => {
+                // Move feature in all its projects
+                Object.keys(featureStatus[featureId] || {}).forEach(projectId => {
+                    featureStatus[featureId][projectId] = status;
+                });
+            });
+
+            saveData();
+            clearSelection();
+            renderAllViews();
+            showToast(`Moved ${count} feature(s) to ${status.replace('_', ' ')}`);
+        }
+
+        function bulkDeleteFeatures() {
+            const count = selectedFeatures.size;
+            if (!confirm(`Delete ${count} selected feature(s)?`)) return;
+
+            selectedFeatures.forEach(featureId => {
+                features = features.filter(f => f.id !== featureId);
+                delete featureStatus[featureId];
+            });
+
+            saveData();
+            clearSelection();
+            renderAllViews();
+            showToast(`Deleted ${count} feature(s)`);
         }
 
         // AI Settings
@@ -1950,7 +2089,11 @@ CONTEXTUALIZED PROMPT:`;
                         </div>
                     ` : ''}
                     <div class="card-header">
-                        <div class="card-title">${escapeHtml(feature.title)}</div>
+                        <input type="checkbox" class="feature-checkbox" data-feature-id="${feature.id}"
+                               onclick="toggleFeatureSelection('${feature.id}', event)"
+                               style="margin-right: 0.5rem; cursor: pointer;"
+                               ${selectedFeatures.has(feature.id) ? 'checked' : ''}>
+                        <div class="card-title" style="flex: 1;">${escapeHtml(feature.title)}</div>
                     </div>
                     ${feature.description ? `<div class="card-description">${escapeHtml(feature.description)}</div>` : ''}
                     <div class="card-prompt">${escapeHtml(feature.prompt)}</div>
