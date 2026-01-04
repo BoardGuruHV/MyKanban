@@ -804,6 +804,60 @@
             display: inline-block;
         }
 
+        .priority-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            display: inline-block;
+            white-space: nowrap;
+            margin-left: 0.5rem;
+        }
+
+        .priority-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .priority-high {
+            background: rgba(249, 115, 22, 0.2);
+            color: #ea580c;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .priority-medium {
+            background: rgba(59, 130, 246, 0.2);
+            color: #2563eb;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .priority-low {
+            background: rgba(107, 114, 128, 0.2);
+            color: #4b5563;
+            border: 1px solid rgba(107, 114, 128, 0.3);
+        }
+
+        body.dark-mode .priority-critical {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        body.dark-mode .priority-high {
+            background: rgba(249, 115, 22, 0.15);
+            color: #fb923c;
+        }
+
+        body.dark-mode .priority-medium {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+        }
+
+        body.dark-mode .priority-low {
+            background: rgba(107, 114, 128, 0.15);
+            color: #9ca3af;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .kanban-board {
@@ -869,6 +923,17 @@
                     <option value="">🏷️ All Tags</option>
                 </select>
                 <select
+                    id="priority-filter"
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
+                    onchange="handlePriorityFilter(event)"
+                >
+                    <option value="">⚡ All Priorities</option>
+                    <option value="critical">🔴 Critical</option>
+                    <option value="high">🟠 High</option>
+                    <option value="medium">🔵 Medium</option>
+                    <option value="low">⚪ Low</option>
+                </select>
+                <select
                     id="sort-features"
                     style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
                     onchange="handleSort(event)"
@@ -877,6 +942,8 @@
                     <option value="oldest">📅 Oldest First</option>
                     <option value="a-z">🔤 A-Z</option>
                     <option value="z-a">🔤 Z-A</option>
+                    <option value="priority-high">⚡ Priority: High to Low</option>
+                    <option value="priority-low">⚡ Priority: Low to High</option>
                 </select>
             </div>
         </div>
@@ -940,6 +1007,15 @@
                     <div class="form-group">
                         <label>Tags (comma-separated)</label>
                         <input type="text" id="feature-tags" placeholder="e.g., ui, analytics, enhancement">
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="feature-priority">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Add to Projects *</label>
@@ -1130,6 +1206,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let featureStatus = {}; // { featureId: { projectId: 'backlog|in_progress|done' } }
         let searchQuery = ''; // Search filter
         let selectedTag = ''; // Tag filter
+        let selectedPriority = ''; // Priority filter
         let sortOrder = 'newest'; // Sort order
         let selectedFeatures = new Set(); // Bulk selection
 
@@ -1604,6 +1681,7 @@ Output ONLY the adapted prompt, no explanations.`
             const description = document.getElementById('feature-description').value.trim();
             const basePrompt = document.getElementById('feature-prompt').value.trim();
             const tags = document.getElementById('feature-tags').value.trim().split(',').map(t => t.trim()).filter(Boolean);
+            const priority = document.getElementById('feature-priority').value;
 
             // Get selected projects
             const selectedProjects = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
@@ -1617,7 +1695,7 @@ Output ONLY the adapted prompt, no explanations.`
 
             // Check if we're editing
             if (editingFeatureId) {
-                updateFeature(editingFeatureId, title, description, basePrompt, tags, selectedProjects);
+                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, selectedProjects);
                 return;
             }
 
@@ -1627,15 +1705,15 @@ Output ONLY the adapted prompt, no explanations.`
             // Route based on creation mode
             if (creationMode === 'identical' || selectedProjects.length === 1) {
                 // Original behavior: one feature for all projects
-                createIdenticalFeature(title, description, basePrompt, tags, selectedProjects);
+                createIdenticalFeature(title, description, basePrompt, tags, priority, selectedProjects);
             } else {
                 // New behavior: contextualize for each project
-                await createContextualizedFeatures(title, description, basePrompt, tags, selectedProjects);
+                await createContextualizedFeatures(title, description, basePrompt, tags, priority, selectedProjects);
             }
         }
 
         // Update existing feature
-        function updateFeature(featureId, title, description, prompt, tags, selectedProjects) {
+        function updateFeature(featureId, title, description, prompt, tags, priority, selectedProjects) {
             const feature = features.find(f => f.id === featureId);
             if (!feature) return;
 
@@ -1647,6 +1725,7 @@ Output ONLY the adapted prompt, no explanations.`
             feature.description = description;
             feature.prompt = prompt;
             feature.tags = tags;
+            feature.priority = priority || 'medium';
 
             // Update project associations
             featureStatus[featureId] = {};
@@ -1663,7 +1742,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create identical feature for all selected projects
-        function createIdenticalFeature(title, description, prompt, tags, selectedProjects) {
+        function createIdenticalFeature(title, description, prompt, tags, priority, selectedProjects) {
             // Save state for undo
             saveState();
 
@@ -1673,6 +1752,7 @@ Output ONLY the adapted prompt, no explanations.`
                 description,
                 prompt,
                 tags,
+                priority: priority || 'medium',
                 createdAt: new Date().toISOString(),
                 // New fields for backward compatibility
                 isVariant: false,
@@ -1698,7 +1778,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create contextualized features for multiple projects
-        async function createContextualizedFeatures(title, description, basePrompt, tags, selectedProjectIds) {
+        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, selectedProjectIds) {
             const variantGroupId = `variant-${Date.now()}`;
             const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
 
@@ -1746,6 +1826,7 @@ Output ONLY the adapted prompt, no explanations.`
                 description,
                 basePrompt,
                 tags,
+                priority,
                 variantGroupId,
                 variantPrompts
             };
@@ -1812,7 +1893,7 @@ CONTEXTUALIZED PROMPT:`;
             // Save state for undo
             saveState();
 
-            const { title, description, basePrompt, tags, variantGroupId, variantPrompts } = window.pendingVariants;
+            const { title, description, basePrompt, tags, priority, variantGroupId, variantPrompts } = window.pendingVariants;
 
             // Create feature object for each variant
             Object.entries(variantPrompts).forEach(([projectId, variantData], index) => {
@@ -1826,6 +1907,7 @@ CONTEXTUALIZED PROMPT:`;
                     description,
                     prompt: finalPrompt,  // Use edited prompt from preview
                     tags,
+                    priority: priority || 'medium',
                     createdAt: new Date().toISOString(),
                     isVariant: true,
                     variantGroupId: variantGroupId,
@@ -2213,6 +2295,7 @@ CONTEXTUALIZED PROMPT:`;
                                style="margin-right: 0.5rem; cursor: pointer;"
                                ${selectedFeatures.has(feature.id) ? 'checked' : ''}>
                         <div class="card-title" style="flex: 1;">${escapeHtml(feature.title)}</div>
+                        <span class="priority-badge priority-${feature.priority || 'medium'}">${(feature.priority || 'medium').toUpperCase()}</span>
                     </div>
                     ${feature.description ? `<div class="card-description">${escapeHtml(feature.description)}</div>` : ''}
                     <div class="card-prompt">${escapeHtml(feature.prompt)}</div>
@@ -2358,6 +2441,7 @@ CONTEXTUALIZED PROMPT:`;
             document.getElementById('feature-description').value = feature.description || '';
             document.getElementById('feature-prompt').value = feature.prompt;
             document.getElementById('feature-tags').value = feature.tags.join(', ');
+            document.getElementById('feature-priority').value = feature.priority || 'medium';
 
             // Get projects this feature belongs to
             const featureProjects = Object.keys(featureStatus[featureId] || {});
@@ -2422,6 +2506,12 @@ CONTEXTUALIZED PROMPT:`;
             renderAllViews();
         }
 
+        // Handle priority filter
+        function handlePriorityFilter(event) {
+            selectedPriority = event.target.value;
+            renderAllViews();
+        }
+
         // Handle sort
         function handleSort(event) {
             sortOrder = event.target.value;
@@ -2431,6 +2521,7 @@ CONTEXTUALIZED PROMPT:`;
         // Sort features array
         function sortFeatures(featureList) {
             const sorted = [...featureList];
+            const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
 
             switch (sortOrder) {
                 case 'newest':
@@ -2444,6 +2535,20 @@ CONTEXTUALIZED PROMPT:`;
                     break;
                 case 'z-a':
                     sorted.sort((a, b) => b.title.localeCompare(a.title));
+                    break;
+                case 'priority-high':
+                    sorted.sort((a, b) => {
+                        const aPriority = priorityOrder[a.priority || 'medium'];
+                        const bPriority = priorityOrder[b.priority || 'medium'];
+                        return bPriority - aPriority;
+                    });
+                    break;
+                case 'priority-low':
+                    sorted.sort((a, b) => {
+                        const aPriority = priorityOrder[a.priority || 'medium'];
+                        const bPriority = priorityOrder[b.priority || 'medium'];
+                        return aPriority - bPriority;
+                    });
                     break;
             }
 
@@ -2468,6 +2573,11 @@ CONTEXTUALIZED PROMPT:`;
 
             // Check tag filter
             if (selectedTag && !feature.tags?.includes(selectedTag)) {
+                return false;
+            }
+
+            // Check priority filter
+            if (selectedPriority && (feature.priority || 'medium') !== selectedPriority) {
                 return false;
             }
 
