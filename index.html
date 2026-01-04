@@ -825,14 +825,21 @@
 
         <!-- Search Bar -->
         <div style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1rem 2rem;">
-            <div style="max-width: 600px; margin: 0 auto;">
+            <div style="max-width: 800px; margin: 0 auto; display: flex; gap: 1rem; align-items: center;">
                 <input
                     type="text"
                     id="feature-search"
                     placeholder="🔍 Search features by title, description, tags, or prompt..."
-                    style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem;"
+                    style="flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem;"
                     oninput="handleSearch(event)"
                 />
+                <select
+                    id="tag-filter"
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 200px;"
+                    onchange="handleTagFilter(event)"
+                >
+                    <option value="">🏷️ All Tags</option>
+                </select>
             </div>
         </div>
 
@@ -1084,6 +1091,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let projects = [];
         let featureStatus = {}; // { featureId: { projectId: 'backlog|in_progress|done' } }
         let searchQuery = ''; // Search filter
+        let selectedTag = ''; // Tag filter
 
         // AI Settings
         let aiSettings = {
@@ -1627,6 +1635,7 @@ CONTEXTUALIZED PROMPT:`;
 
         // Render all views
         function renderAllViews() {
+            populateTagFilter();
             renderUnifiedView();
             renderProjectViews();
         }
@@ -1960,18 +1969,62 @@ CONTEXTUALIZED PROMPT:`;
             renderAllViews();
         }
 
-        // Filter features based on search query
+        // Handle tag filter
+        function handleTagFilter(event) {
+            selectedTag = event.target.value;
+            renderAllViews();
+        }
+
+        // Filter features based on search query and tag
         function matchesSearch(feature) {
-            if (!searchQuery) return true;
+            // Check search query
+            if (searchQuery) {
+                const searchableText = [
+                    feature.title,
+                    feature.description || '',
+                    feature.prompt,
+                    ...(feature.tags || [])
+                ].join(' ').toLowerCase();
 
-            const searchableText = [
-                feature.title,
-                feature.description || '',
-                feature.prompt,
-                ...(feature.tags || [])
-            ].join(' ').toLowerCase();
+                if (!searchableText.includes(searchQuery)) {
+                    return false;
+                }
+            }
 
-            return searchableText.includes(searchQuery);
+            // Check tag filter
+            if (selectedTag && !feature.tags?.includes(selectedTag)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Populate tag filter dropdown
+        function populateTagFilter() {
+            const tagSet = new Set();
+            features.forEach(feature => {
+                feature.tags?.forEach(tag => tagSet.add(tag));
+            });
+
+            const tagFilter = document.getElementById('tag-filter');
+            const currentValue = tagFilter.value;
+
+            // Keep "All Tags" option and add unique tags
+            tagFilter.innerHTML = '<option value="">🏷️ All Tags</option>';
+
+            Array.from(tagSet).sort().forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+
+            // Restore selection if tag still exists
+            if (currentValue && tagSet.has(currentValue)) {
+                tagFilter.value = currentValue;
+            } else if (currentValue) {
+                selectedTag = '';
+            }
         }
 
         // Populate project checkboxes in Add Feature modal
