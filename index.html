@@ -1495,6 +1495,21 @@ CONTEXTUALIZED PROMPT:`;
             e.target.reset();
         }
 
+        // Edit project name
+        function editProjectName(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            const newName = prompt('Enter new project name:', project.name);
+            if (newName && newName.trim() && newName.trim() !== project.name) {
+                project.name = newName.trim();
+                saveData();
+                renderNav();
+                renderAllViews();
+                showToast('Project name updated!');
+            }
+        }
+
         // Render navigation
         function renderNav() {
             const nav = document.getElementById('nav-tabs');
@@ -1612,7 +1627,7 @@ CONTEXTUALIZED PROMPT:`;
                 view.innerHTML = `
                     <div class="board-container">
                         <div class="board-header">
-                            <h2 class="board-title" style="color: ${project.color}">${escapeHtml(project.name)}</h2>
+                            <h2 class="board-title" style="color: ${project.color}; cursor: pointer;" onclick="editProjectName('${project.id}')" title="Click to edit project name">${escapeHtml(project.name)}</h2>
                             <div class="board-stats">
                                 ${renderProjectStats(project.id)}
                             </div>
