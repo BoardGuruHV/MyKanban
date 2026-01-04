@@ -924,6 +924,40 @@
             color: #9ca3af;
         }
 
+        .card-assignees {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .assignee-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .assignee-badge:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        body.dark-mode .assignee-badge {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark-mode .assignee-badge:hover {
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .kanban-board {
@@ -998,6 +1032,13 @@
                     <option value="high">🟠 High</option>
                     <option value="medium">🔵 Medium</option>
                     <option value="low">⚪ Low</option>
+                </select>
+                <select
+                    id="assignee-filter"
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
+                    onchange="handleAssigneeFilter(event)"
+                >
+                    <option value="">👥 All Assignees</option>
                 </select>
                 <select
                     id="sort-features"
@@ -1088,6 +1129,11 @@
                     <div class="form-group">
                         <label>Due Date (optional)</label>
                         <input type="date" id="feature-due-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Assignees (comma-separated)</label>
+                        <input type="text" id="feature-assignees" placeholder="e.g., Alice, Bob, Charlie">
+                        <small style="color: var(--text-light); margin-top: 0.25rem; display: block;">Enter names separated by commas</small>
                     </div>
                     <div class="form-group">
                         <label>Add to Projects *</label>
@@ -1279,6 +1325,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let searchQuery = ''; // Search filter
         let selectedTag = ''; // Tag filter
         let selectedPriority = ''; // Priority filter
+        let selectedAssignee = ''; // Assignee filter
         let sortOrder = 'newest'; // Sort order
         let selectedFeatures = new Set(); // Bulk selection
 
@@ -1755,6 +1802,7 @@ Output ONLY the adapted prompt, no explanations.`
             const tags = document.getElementById('feature-tags').value.trim().split(',').map(t => t.trim()).filter(Boolean);
             const priority = document.getElementById('feature-priority').value;
             const dueDate = document.getElementById('feature-due-date').value || null;
+            const assignees = document.getElementById('feature-assignees').value.trim().split(',').map(a => a.trim()).filter(Boolean);
 
             // Get selected projects
             const selectedProjects = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
@@ -1768,7 +1816,7 @@ Output ONLY the adapted prompt, no explanations.`
 
             // Check if we're editing
             if (editingFeatureId) {
-                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, selectedProjects);
+                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjects);
                 return;
             }
 
@@ -1778,15 +1826,15 @@ Output ONLY the adapted prompt, no explanations.`
             // Route based on creation mode
             if (creationMode === 'identical' || selectedProjects.length === 1) {
                 // Original behavior: one feature for all projects
-                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, selectedProjects);
+                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjects);
             } else {
                 // New behavior: contextualize for each project
-                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, selectedProjects);
+                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjects);
             }
         }
 
         // Update existing feature
-        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, selectedProjects) {
+        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, assignees, selectedProjects) {
             const feature = features.find(f => f.id === featureId);
             if (!feature) return;
 
@@ -1800,6 +1848,7 @@ Output ONLY the adapted prompt, no explanations.`
             feature.tags = tags;
             feature.priority = priority || 'medium';
             feature.dueDate = dueDate;
+            feature.assignees = assignees || [];
 
             // Update project associations
             featureStatus[featureId] = {};
@@ -1816,7 +1865,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create identical feature for all selected projects
-        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, selectedProjects) {
+        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, assignees, selectedProjects) {
             // Save state for undo
             saveState();
 
@@ -1828,6 +1877,7 @@ Output ONLY the adapted prompt, no explanations.`
                 tags,
                 priority: priority || 'medium',
                 dueDate: dueDate,
+                assignees: assignees || [],
                 createdAt: new Date().toISOString(),
                 // New fields for backward compatibility
                 isVariant: false,
@@ -1853,7 +1903,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create contextualized features for multiple projects
-        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, selectedProjectIds) {
+        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjectIds) {
             const variantGroupId = `variant-${Date.now()}`;
             const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
 
@@ -1903,6 +1953,7 @@ Output ONLY the adapted prompt, no explanations.`
                 tags,
                 priority,
                 dueDate,
+                assignees,
                 variantGroupId,
                 variantPrompts
             };
@@ -1969,7 +2020,7 @@ CONTEXTUALIZED PROMPT:`;
             // Save state for undo
             saveState();
 
-            const { title, description, basePrompt, tags, priority, dueDate, variantGroupId, variantPrompts } = window.pendingVariants;
+            const { title, description, basePrompt, tags, priority, dueDate, assignees, variantGroupId, variantPrompts } = window.pendingVariants;
 
             // Create feature object for each variant
             Object.entries(variantPrompts).forEach(([projectId, variantData], index) => {
@@ -1985,6 +2036,7 @@ CONTEXTUALIZED PROMPT:`;
                     tags,
                     priority: priority || 'medium',
                     dueDate: dueDate,
+                    assignees: assignees || [],
                     createdAt: new Date().toISOString(),
                     isVariant: true,
                     variantGroupId: variantGroupId,
@@ -2231,6 +2283,7 @@ CONTEXTUALIZED PROMPT:`;
         // Render all views
         function renderAllViews() {
             populateTagFilter();
+            populateAssigneeFilter();
             renderUnifiedView();
             renderProjectViews();
         }
@@ -2383,8 +2436,21 @@ CONTEXTUALIZED PROMPT:`;
                     })() : ''}
                     <div class="card-prompt">${escapeHtml(feature.prompt)}</div>
                     <div class="card-footer">
-                        <div class="card-tags">
-                            ${feature.tags.map(tag => `<span class="card-tag">${escapeHtml(tag)}</span>`).join('')}
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
+                            ${feature.tags && feature.tags.length > 0 ? `
+                                <div class="card-tags">
+                                    ${feature.tags.map(tag => `<span class="card-tag">${escapeHtml(tag)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            ${feature.assignees && feature.assignees.length > 0 ? `
+                                <div class="card-assignees">
+                                    ${feature.assignees.map(assignee => `
+                                        <span class="assignee-badge" style="background-color: ${stringToColor(assignee)};" title="${escapeHtml(assignee)}">
+                                            ${getInitials(assignee)}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="card-actions">
                             <button class="btn btn-icon btn-small" onclick="copyPrompt('${feature.id}')" title="Copy Prompt">
@@ -2526,6 +2592,7 @@ CONTEXTUALIZED PROMPT:`;
             document.getElementById('feature-tags').value = feature.tags.join(', ');
             document.getElementById('feature-priority').value = feature.priority || 'medium';
             document.getElementById('feature-due-date').value = feature.dueDate || '';
+            document.getElementById('feature-assignees').value = (feature.assignees || []).join(', ');
 
             // Get projects this feature belongs to
             const featureProjects = Object.keys(featureStatus[featureId] || {});
@@ -2593,6 +2660,12 @@ CONTEXTUALIZED PROMPT:`;
         // Handle priority filter
         function handlePriorityFilter(event) {
             selectedPriority = event.target.value;
+            renderAllViews();
+        }
+
+        // Handle assignee filter
+        function handleAssigneeFilter(event) {
+            selectedAssignee = event.target.value;
             renderAllViews();
         }
 
@@ -2683,6 +2756,11 @@ CONTEXTUALIZED PROMPT:`;
                 return false;
             }
 
+            // Check assignee filter
+            if (selectedAssignee && !(feature.assignees || []).includes(selectedAssignee)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -2711,6 +2789,34 @@ CONTEXTUALIZED PROMPT:`;
                 tagFilter.value = currentValue;
             } else if (currentValue) {
                 selectedTag = '';
+            }
+        }
+
+        // Populate assignee filter dropdown
+        function populateAssigneeFilter() {
+            const assigneeSet = new Set();
+            features.forEach(feature => {
+                (feature.assignees || []).forEach(assignee => assigneeSet.add(assignee));
+            });
+
+            const assigneeFilter = document.getElementById('assignee-filter');
+            const currentValue = assigneeFilter.value;
+
+            // Keep "All Assignees" option and add unique assignees
+            assigneeFilter.innerHTML = '<option value="">👥 All Assignees</option>';
+
+            Array.from(assigneeSet).sort().forEach(assignee => {
+                const option = document.createElement('option');
+                option.value = assignee;
+                option.textContent = assignee;
+                assigneeFilter.appendChild(option);
+            });
+
+            // Restore selection if assignee still exists
+            if (currentValue && assigneeSet.has(currentValue)) {
+                assigneeFilter.value = currentValue;
+            } else if (currentValue) {
+                selectedAssignee = '';
             }
         }
 
@@ -2861,6 +2967,26 @@ CONTEXTUALIZED PROMPT:`;
             } else {
                 return { text: formatted, status: 'future', label: `Due ${formatted}` };
             }
+        }
+
+        // Get initials from name
+        function getInitials(name) {
+            return name
+                .split(' ')
+                .map(word => word[0])
+                .join('')
+                .toUpperCase()
+                .substring(0, 2);
+        }
+
+        // Generate color from string (consistent color for each name)
+        function stringToColor(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = hash % 360;
+            return `hsl(${hue}, 65%, 50%)`;
         }
 
         // AI Enhancement Functions
