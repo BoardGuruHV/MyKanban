@@ -825,7 +825,7 @@
 
         <!-- Search Bar -->
         <div style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1rem 2rem;">
-            <div style="max-width: 800px; margin: 0 auto; display: flex; gap: 1rem; align-items: center;">
+            <div style="max-width: 1000px; margin: 0 auto; display: flex; gap: 1rem; align-items: center;">
                 <input
                     type="text"
                     id="feature-search"
@@ -835,10 +835,20 @@
                 />
                 <select
                     id="tag-filter"
-                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 200px;"
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
                     onchange="handleTagFilter(event)"
                 >
                     <option value="">🏷️ All Tags</option>
+                </select>
+                <select
+                    id="sort-features"
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
+                    onchange="handleSort(event)"
+                >
+                    <option value="newest">📅 Newest First</option>
+                    <option value="oldest">📅 Oldest First</option>
+                    <option value="a-z">🔤 A-Z</option>
+                    <option value="z-a">🔤 Z-A</option>
                 </select>
             </div>
         </div>
@@ -1092,6 +1102,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let featureStatus = {}; // { featureId: { projectId: 'backlog|in_progress|done' } }
         let searchQuery = ''; // Search filter
         let selectedTag = ''; // Tag filter
+        let sortOrder = 'newest'; // Sort order
 
         // AI Settings
         let aiSettings = {
@@ -1732,9 +1743,10 @@ CONTEXTUALIZED PROMPT:`;
 
         // Render column
         function renderColumn(projectId, status, title) {
-            const columnFeatures = features.filter(f =>
+            const filteredFeatures = features.filter(f =>
                 featureStatus[f.id]?.[projectId] === status && matchesSearch(f)
             );
+            const columnFeatures = sortFeatures(filteredFeatures);
 
             // Add "Add Feature" button only to backlog column
             const addFeatureBtn = status === 'backlog'
@@ -1973,6 +1985,34 @@ CONTEXTUALIZED PROMPT:`;
         function handleTagFilter(event) {
             selectedTag = event.target.value;
             renderAllViews();
+        }
+
+        // Handle sort
+        function handleSort(event) {
+            sortOrder = event.target.value;
+            renderAllViews();
+        }
+
+        // Sort features array
+        function sortFeatures(featureList) {
+            const sorted = [...featureList];
+
+            switch (sortOrder) {
+                case 'newest':
+                    sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    break;
+                case 'oldest':
+                    sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                    break;
+                case 'a-z':
+                    sorted.sort((a, b) => a.title.localeCompare(b.title));
+                    break;
+                case 'z-a':
+                    sorted.sort((a, b) => b.title.localeCompare(a.title));
+                    break;
+            }
+
+            return sorted;
         }
 
         // Filter features based on search query and tag
