@@ -823,6 +823,19 @@
             </div>
         </div>
 
+        <!-- Search Bar -->
+        <div style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1rem 2rem;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                <input
+                    type="text"
+                    id="feature-search"
+                    placeholder="🔍 Search features by title, description, tags, or prompt..."
+                    style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem;"
+                    oninput="handleSearch(event)"
+                />
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="nav-container">
             <div class="nav" id="nav-tabs">
@@ -1070,6 +1083,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let features = [];
         let projects = [];
         let featureStatus = {}; // { featureId: { projectId: 'backlog|in_progress|done' } }
+        let searchQuery = ''; // Search filter
 
         // AI Settings
         let aiSettings = {
@@ -1710,7 +1724,7 @@ CONTEXTUALIZED PROMPT:`;
         // Render column
         function renderColumn(projectId, status, title) {
             const columnFeatures = features.filter(f =>
-                featureStatus[f.id]?.[projectId] === status
+                featureStatus[f.id]?.[projectId] === status && matchesSearch(f)
             );
 
             // Add "Add Feature" button only to backlog column
@@ -1795,7 +1809,9 @@ CONTEXTUALIZED PROMPT:`;
         function getProjectStats(projectId) {
             let backlog = 0, inProgress = 0, done = 0;
 
-            features.forEach(feature => {
+            const filteredFeatures = features.filter(matchesSearch);
+
+            filteredFeatures.forEach(feature => {
                 const status = featureStatus[feature.id]?.[projectId];
                 if (status === 'backlog') backlog++;
                 else if (status === 'in_progress') inProgress++;
@@ -1803,7 +1819,7 @@ CONTEXTUALIZED PROMPT:`;
             });
 
             return {
-                total: features.length,
+                total: filteredFeatures.length,
                 backlog,
                 inProgress,
                 done
@@ -1936,6 +1952,26 @@ CONTEXTUALIZED PROMPT:`;
                 // Reset form
                 document.getElementById('feature-form').reset();
             }
+        }
+
+        // Handle search
+        function handleSearch(event) {
+            searchQuery = event.target.value.toLowerCase().trim();
+            renderAllViews();
+        }
+
+        // Filter features based on search query
+        function matchesSearch(feature) {
+            if (!searchQuery) return true;
+
+            const searchableText = [
+                feature.title,
+                feature.description || '',
+                feature.prompt,
+                ...(feature.tags || [])
+            ].join(' ').toLowerCase();
+
+            return searchableText.includes(searchQuery);
         }
 
         // Populate project checkboxes in Add Feature modal
