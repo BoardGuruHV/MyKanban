@@ -1150,6 +1150,123 @@ Output ONLY the adapted prompt, no explanations.</textarea>
             }
         }
 
+        // Keyboard shortcuts
+        function handleKeyboardShortcuts(e) {
+            // Don't trigger shortcuts when typing in inputs or textareas
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                // Allow Escape to work in inputs
+                if (e.key === 'Escape') {
+                    e.target.blur();
+                    const openModal = document.querySelector('.modal.show');
+                    if (openModal) {
+                        openModal.classList.remove('show');
+                    }
+                }
+                return;
+            }
+
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+            // Ctrl/Cmd + K: Focus search
+            if (modifier && e.key === 'k') {
+                e.preventDefault();
+                document.getElementById('feature-search')?.focus();
+                return;
+            }
+
+            // Ctrl/Cmd + N: New feature
+            if (modifier && e.key === 'n') {
+                e.preventDefault();
+                openModal('add-feature');
+                return;
+            }
+
+            // Ctrl/Cmd + P: New project
+            if (modifier && e.key === 'p') {
+                e.preventDefault();
+                openModal('add-project');
+                return;
+            }
+
+            // Ctrl/Cmd + D: Toggle dark mode
+            if (modifier && e.key === 'd') {
+                e.preventDefault();
+                toggleDarkMode();
+                return;
+            }
+
+            // ?: Show keyboard shortcuts help
+            if (e.key === '?' && !modifier) {
+                e.preventDefault();
+                showKeyboardShortcuts();
+                return;
+            }
+
+            // Number keys 1-9: Switch to nth tab
+            if (e.key >= '1' && e.key <= '9' && !modifier) {
+                e.preventDefault();
+                const tabIndex = parseInt(e.key) - 1;
+                const tabs = document.querySelectorAll('.nav-tab');
+                if (tabs[tabIndex]) {
+                    tabs[tabIndex].click();
+                }
+                return;
+            }
+
+            // Arrow Left/Right: Navigate tabs
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                const tabs = Array.from(document.querySelectorAll('.nav-tab'));
+                const activeIndex = tabs.findIndex(tab => tab.classList.contains('active'));
+                if (activeIndex !== -1) {
+                    e.preventDefault();
+                    let newIndex = e.key === 'ArrowLeft' ? activeIndex - 1 : activeIndex + 1;
+                    if (newIndex < 0) newIndex = tabs.length - 1;
+                    if (newIndex >= tabs.length) newIndex = 0;
+                    tabs[newIndex].click();
+                }
+                return;
+            }
+
+            // Escape: Close any open modal
+            if (e.key === 'Escape') {
+                const openModal = document.querySelector('.modal.show');
+                if (openModal) {
+                    openModal.classList.remove('show');
+                }
+            }
+        }
+
+        function showKeyboardShortcuts() {
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const mod = isMac ? '⌘' : 'Ctrl';
+
+            const shortcuts = [
+                { key: `${mod} + K`, action: 'Focus search bar' },
+                { key: `${mod} + N`, action: 'Add new feature' },
+                { key: `${mod} + P`, action: 'Add new project' },
+                { key: `${mod} + D`, action: 'Toggle dark mode' },
+                { key: '1-9', action: 'Switch to tab (1 = first tab)' },
+                { key: '← →', action: 'Navigate between tabs' },
+                { key: '?', action: 'Show this help' },
+                { key: 'Esc', action: 'Close modal or unfocus input' }
+            ];
+
+            const shortcutsList = shortcuts.map(s =>
+                `<div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border);">
+                    <span style="font-family: monospace; font-weight: 600; color: var(--primary);">${s.key}</span>
+                    <span style="color: var(--text-secondary);">${s.action}</span>
+                </div>`
+            ).join('');
+
+            showToast(`
+                <div style="text-align: left; max-width: 400px;">
+                    <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; text-align: center;">⌨️ Keyboard Shortcuts</div>
+                    ${shortcutsList}
+                </div>
+            `, 8000);
+        }
+
         // AI Settings
         let aiSettings = {
             ollamaUrl: window.APP_CONFIG?.API_URL || 'http://localhost:11434',
@@ -1210,6 +1327,9 @@ Output ONLY the adapted prompt, no explanations.`
             // Start Ollama status checking
             checkOllamaStatus();
             statusCheckInterval = setInterval(checkOllamaStatus, 10000); // Check every 10 seconds
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', handleKeyboardShortcuts);
         });
 
         // Load data
@@ -2180,16 +2300,33 @@ CONTEXTUALIZED PROMPT:`;
         }
 
         // Toast
-        function showToast(message, type = 'success') {
+        function showToast(message, durationOrType = 'success') {
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
-            toastMessage.textContent = message;
+
+            // Support both (message, type) and (message, duration) signatures
+            let duration = 3000;
+            let type = 'success';
+
+            if (typeof durationOrType === 'number') {
+                duration = durationOrType;
+            } else {
+                type = durationOrType;
+            }
+
+            // Support HTML content
+            if (message.includes('<')) {
+                toastMessage.innerHTML = message;
+            } else {
+                toastMessage.textContent = message;
+            }
+
             toast.className = `toast ${type}`;
             toast.classList.add('show');
 
             setTimeout(() => {
                 toast.classList.remove('show');
-            }, 3000);
+            }, duration);
         }
 
         // Export
