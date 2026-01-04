@@ -1510,6 +1510,34 @@ CONTEXTUALIZED PROMPT:`;
             }
         }
 
+        // Delete project
+        function deleteProject(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            const confirmation = confirm(`Are you sure you want to delete "${project.name}"?\n\nThis will remove all features associated with this project.`);
+            if (!confirmation) return;
+
+            // Remove project
+            projects = projects.filter(p => p.id !== projectId);
+
+            // Remove all feature associations with this project
+            Object.keys(featureStatus).forEach(featureId => {
+                if (featureStatus[featureId][projectId]) {
+                    delete featureStatus[featureId][projectId];
+                }
+            });
+
+            saveData();
+            renderNav();
+            renderAllViews();
+
+            // Switch to unified view after deletion
+            switchView('unified');
+
+            showToast('Project deleted successfully!');
+        }
+
         // Render navigation
         function renderNav() {
             const nav = document.getElementById('nav-tabs');
@@ -1628,8 +1656,13 @@ CONTEXTUALIZED PROMPT:`;
                     <div class="board-container">
                         <div class="board-header">
                             <h2 class="board-title" style="color: ${project.color}; cursor: pointer;" onclick="editProjectName('${project.id}')" title="Click to edit project name">${escapeHtml(project.name)}</h2>
-                            <div class="board-stats">
-                                ${renderProjectStats(project.id)}
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div class="board-stats">
+                                    ${renderProjectStats(project.id)}
+                                </div>
+                                <button onclick="deleteProject('${project.id}')" class="btn btn-danger btn-small" title="Delete project" style="background: #dc3545;">
+                                    🗑️ Delete
+                                </button>
                             </div>
                         </div>
                         <div class="kanban-board">
