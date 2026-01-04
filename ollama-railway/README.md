@@ -38,16 +38,18 @@ Set these in Railway dashboard after deployment:
 
 | Variable | Value | Description |
 |----------|-------|-------------|
-| `OLLAMA_MODEL` | `llama3` | Model to pull (optional, defaults to llama3) |
+| `OLLAMA_MODEL` | `qwen2.5:3b` | Model to pull (optional, defaults to qwen2.5:3b) |
 | `PORT` | `11434` | Ollama port (Railway sets automatically) |
 
 ## 📊 Resource Requirements
 
-- **RAM**: Minimum 4GB (8GB recommended)
-- **Storage**: ~5GB for llama3 model
+- **RAM**: Minimum 2GB (qwen2.5:3b model)
+- **Storage**: ~2GB for qwen2.5:3b model (~5GB for llama3)
 - **CPU**: 2+ cores recommended
 
 **Railway Plan Needed**: At least the **Developer Plan** ($5/month base + usage)
+
+**Note**: Using qwen2.5:3b instead of llama3 due to Railway's memory constraints (container has ~3.3GB available despite 8GB allocation)
 
 ## 🔗 After Deployment
 
@@ -65,7 +67,7 @@ curl https://your-ollama-url.up.railway.app/api/tags
 curl -X POST https://your-ollama-url.up.railway.app/api/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "llama3",
+    "model": "qwen2.5:3b",
     "prompt": "Say hello!",
     "stream": false
   }'
@@ -73,10 +75,10 @@ curl -X POST https://your-ollama-url.up.railway.app/api/generate \
 
 ## ⚠️ Important Notes
 
-- First deployment will take 5-10 minutes (downloading model)
-- Model is ~4.7GB and persists in Railway volume
+- First deployment will take 2-5 minutes (downloading qwen2.5:3b model)
+- Model is ~1.9GB (qwen2.5:3b) and will need to be re-downloaded on each deployment
 - Inference will be slower than local GPU (Railway uses CPU)
-- Consider using smaller models like `qwen2.5:3b` for faster inference
+- qwen2.5:3b provides good quality while fitting in Railway's memory constraints
 
 ## 💰 Cost Estimate
 

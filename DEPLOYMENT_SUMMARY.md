@@ -43,8 +43,8 @@
 - ✅ Responsive design (mobile/tablet/desktop)
 
 ### AI Features (Production Ready!)
-- ✅ AI prompt enhancement (deployed on Railway - llama3 8B)
-- ✅ AI contextualization (deployed on Railway - llama3 8B)
+- ✅ AI prompt enhancement (deployed on Railway - qwen2.5:3b)
+- ✅ AI contextualization (deployed on Railway - qwen2.5:3b)
 - ✅ Production Ollama service (meticulous-spirit-production.up.railway.app)
 
 ---

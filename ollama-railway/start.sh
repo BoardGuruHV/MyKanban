@@ -7,8 +7,8 @@
 echo "Waiting for Ollama to start..."
 sleep 10
 
-# Pull the llama3 model (or whatever model is specified)
-MODEL=${OLLAMA_MODEL:-llama3}
+# Pull the model (using smaller qwen2.5:3b for Railway's memory constraints)
+MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
 echo "Pulling model: $MODEL"
 /bin/ollama pull $MODEL
 
