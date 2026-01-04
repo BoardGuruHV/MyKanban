@@ -1175,6 +1175,12 @@ Output ONLY the adapted prompt, no explanations.`
                 return;
             }
 
+            // Check if we're editing
+            if (editingFeatureId) {
+                updateFeature(editingFeatureId, title, description, basePrompt, tags, selectedProjects);
+                return;
+            }
+
             // Get creation mode
             const creationMode = document.querySelector('input[name="creation-mode"]:checked')?.value || 'identical';
 
@@ -1186,6 +1192,31 @@ Output ONLY the adapted prompt, no explanations.`
                 // New behavior: contextualize for each project
                 await createContextualizedFeatures(title, description, basePrompt, tags, selectedProjects);
             }
+        }
+
+        // Update existing feature
+        function updateFeature(featureId, title, description, prompt, tags, selectedProjects) {
+            const feature = features.find(f => f.id === featureId);
+            if (!feature) return;
+
+            // Update feature properties
+            feature.title = title;
+            feature.description = description;
+            feature.prompt = prompt;
+            feature.tags = tags;
+
+            // Update project associations
+            featureStatus[featureId] = {};
+            selectedProjects.forEach(projectId => {
+                featureStatus[featureId][projectId] = featureStatus[featureId][projectId] || 'backlog';
+            });
+
+            saveData();
+            closeModal('add-feature');
+            renderAllViews();
+            showToast('Feature updated!');
+            document.getElementById('feature-form').reset();
+            editingFeatureId = null;
         }
 
         // Create identical feature for all selected projects
@@ -1729,6 +1760,9 @@ CONTEXTUALIZED PROMPT:`;
                             <button class="btn btn-icon btn-small" onclick="copyPrompt('${feature.id}')" title="Copy Prompt">
                                 📋
                             </button>
+                            <button class="btn btn-icon btn-small" onclick="editFeature('${feature.id}')" title="Edit Feature">
+                                ✏️
+                            </button>
                             <button class="btn btn-icon btn-small" onclick="deleteFeature('${feature.id}')" title="Delete">
                                 🗑️
                             </button>
@@ -1838,6 +1872,43 @@ CONTEXTUALIZED PROMPT:`;
             showToast('Feature deleted');
         }
 
+        // Edit feature
+        let editingFeatureId = null;
+
+        function editFeature(featureId) {
+            const feature = features.find(f => f.id === featureId);
+            if (!feature) return;
+
+            editingFeatureId = featureId;
+
+            // Pre-fill form
+            document.getElementById('feature-title').value = feature.title;
+            document.getElementById('feature-description').value = feature.description || '';
+            document.getElementById('feature-prompt').value = feature.prompt;
+            document.getElementById('feature-tags').value = feature.tags.join(', ');
+
+            // Get projects this feature belongs to
+            const featureProjects = Object.keys(featureStatus[featureId] || {});
+
+            // Open modal
+            openModal('add-feature');
+
+            // Check the appropriate project checkboxes
+            setTimeout(() => {
+                document.querySelectorAll('#project-checkboxes input[type="checkbox"]').forEach(cb => {
+                    cb.checked = featureProjects.includes(cb.value);
+                });
+
+                // Update submit button text
+                const submitBtn = document.querySelector('#feature-form button[type="submit"]');
+                if (submitBtn) submitBtn.textContent = 'Update Feature';
+
+                // Hide creation mode options when editing
+                const creationModeSection = document.querySelector('#feature-form input[name="creation-mode"]')?.closest('div')?.closest('div');
+                if (creationModeSection) creationModeSection.style.display = 'none';
+            }, 100);
+        }
+
         // Modal
         function openModal(modalId, preselectedProjectId = null) {
             const modal = document.getElementById(`${modalId}-modal`);
@@ -1851,6 +1922,20 @@ CONTEXTUALIZED PROMPT:`;
 
         function closeModal(modalId) {
             document.getElementById(`${modalId}-modal`).classList.remove('show');
+
+            // Reset editing state when closing add-feature modal
+            if (modalId === 'add-feature' && editingFeatureId) {
+                editingFeatureId = null;
+                const submitBtn = document.querySelector('#feature-form button[type="submit"]');
+                if (submitBtn) submitBtn.textContent = 'Add Feature';
+
+                // Show creation mode options again
+                const creationModeSection = document.querySelector('#feature-form input[name="creation-mode"]')?.closest('div')?.closest('div');
+                if (creationModeSection) creationModeSection.style.display = '';
+
+                // Reset form
+                document.getElementById('feature-form').reset();
+            }
         }
 
         // Populate project checkboxes in Add Feature modal
