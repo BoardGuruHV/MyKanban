@@ -1007,6 +1007,72 @@
             word-wrap: break-word;
         }
 
+        .subtasks-progress-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: background 0.2s ease;
+        }
+
+        .subtasks-progress-card:hover {
+            background: var(--border);
+        }
+
+        .subtasks-progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+            gap: 0.5rem;
+        }
+
+        .subtasks-progress-bar {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .subtasks-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .subtask-item:hover {
+            border-color: var(--primary);
+        }
+
+        .subtask-item.completed {
+            opacity: 0.6;
+        }
+
+        .subtask-item.completed .subtask-text {
+            text-decoration: line-through;
+            color: var(--text-light);
+        }
+
+        .subtask-text {
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .kanban-board {
@@ -1383,6 +1449,34 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                         <textarea id="comment-text" placeholder="Add a comment..." style="min-height: 80px; resize: vertical;"></textarea>
                     </div>
                     <button class="btn btn-primary" onclick="addComment()">Add Comment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subtasks Modal -->
+    <div class="modal" id="subtasks-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>✓ Subtasks</h2>
+                <button class="modal-close" onclick="closeModal('subtasks')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="feature-title-display-subtasks" style="font-weight: 600; margin-bottom: 1rem; color: var(--text); padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;"></div>
+
+                <div id="subtasks-progress" style="margin-bottom: 1.5rem;">
+                    <!-- Progress bar will be shown here -->
+                </div>
+
+                <div id="subtasks-list" style="max-height: 400px; overflow-y: auto; margin-bottom: 1.5rem;">
+                    <!-- Subtasks will be populated here -->
+                </div>
+
+                <div style="border-top: 2px solid var(--border); padding-top: 1rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="subtask-input" placeholder="Add a subtask..." style="flex: 1;">
+                        <button class="btn btn-primary" onclick="addSubtask()">Add</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1955,6 +2049,7 @@ Output ONLY the adapted prompt, no explanations.`
                 dueDate: dueDate,
                 assignees: assignees || [],
                 comments: [],
+                subtasks: [],
                 createdAt: new Date().toISOString(),
                 // New fields for backward compatibility
                 isVariant: false,
@@ -2115,6 +2210,7 @@ CONTEXTUALIZED PROMPT:`;
                     dueDate: dueDate,
                     assignees: assignees || [],
                     comments: [],
+                    subtasks: [],
                     createdAt: new Date().toISOString(),
                     isVariant: true,
                     variantGroupId: variantGroupId,
@@ -2512,6 +2608,20 @@ CONTEXTUALIZED PROMPT:`;
                             📅 ${dueDateInfo.label}
                         </div>`;
                     })() : ''}
+                    ${feature.subtasks && feature.subtasks.length > 0 ? (() => {
+                        const completed = feature.subtasks.filter(st => st.completed).length;
+                        const total = feature.subtasks.length;
+                        const percentage = Math.round((completed / total) * 100);
+                        return `<div class="subtasks-progress-card" onclick="openSubtasks('${feature.id}')" style="cursor: pointer;">
+                            <div class="subtasks-progress-info">
+                                <span>✓ ${completed}/${total} subtasks</span>
+                                <span>${percentage}%</span>
+                            </div>
+                            <div class="subtasks-progress-bar">
+                                <div class="subtasks-progress-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>`;
+                    })() : ''}
                     <div class="card-prompt">${escapeHtml(feature.prompt)}</div>
                     <div class="card-footer">
                         <div style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
@@ -2531,6 +2641,9 @@ CONTEXTUALIZED PROMPT:`;
                             ` : ''}
                         </div>
                         <div class="card-actions">
+                            <button class="btn btn-icon btn-small" onclick="openSubtasks('${feature.id}')" title="Subtasks">
+                                ✓
+                            </button>
                             <button class="btn btn-icon btn-small" onclick="openComments('${feature.id}')" title="Comments" style="position: relative;">
                                 💬
                                 ${(feature.comments && feature.comments.length > 0) ? `<span class="comment-count">${feature.comments.length}</span>` : ''}
@@ -2763,6 +2876,160 @@ CONTEXTUALIZED PROMPT:`;
             if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
 
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // Subtasks functionality
+        let currentSubtaskFeatureId = null;
+
+        function openSubtasks(featureId) {
+            const feature = features.find(f => f.id === featureId);
+            if (!feature) return;
+
+            currentSubtaskFeatureId = featureId;
+
+            // Ensure subtasks array exists
+            if (!feature.subtasks) {
+                feature.subtasks = [];
+            }
+
+            // Set feature title
+            document.getElementById('feature-title-display-subtasks').textContent = feature.title;
+
+            // Render subtasks
+            renderSubtasks();
+
+            // Clear input
+            document.getElementById('subtask-input').value = '';
+
+            // Open modal
+            openModal('subtasks');
+        }
+
+        function renderSubtasks() {
+            const feature = features.find(f => f.id === currentSubtaskFeatureId);
+            if (!feature) return;
+
+            // Render progress
+            renderSubtasksProgress();
+
+            const subtasksList = document.getElementById('subtasks-list');
+
+            if (!feature.subtasks || feature.subtasks.length === 0) {
+                subtasksList.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">No subtasks yet. Add your first subtask!</p>';
+                return;
+            }
+
+            subtasksList.innerHTML = feature.subtasks.map(subtask => `
+                <div class="subtask-item ${subtask.completed ? 'completed' : ''}">
+                    <input type="checkbox"
+                           ${subtask.completed ? 'checked' : ''}
+                           onchange="toggleSubtask('${subtask.id}')"
+                           style="cursor: pointer;">
+                    <span class="subtask-text" style="flex: 1;">${escapeHtml(subtask.text)}</span>
+                    <button class="btn btn-icon btn-small" onclick="deleteSubtask('${subtask.id}')" title="Delete">
+                        🗑️
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function renderSubtasksProgress() {
+            const feature = features.find(f => f.id === currentSubtaskFeatureId);
+            if (!feature || !feature.subtasks || feature.subtasks.length === 0) {
+                document.getElementById('subtasks-progress').innerHTML = '';
+                return;
+            }
+
+            const completed = feature.subtasks.filter(st => st.completed).length;
+            const total = feature.subtasks.length;
+            const percentage = Math.round((completed / total) * 100);
+
+            document.getElementById('subtasks-progress').innerHTML = `
+                <div class="subtasks-progress-info" style="margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600;">${completed} of ${total} completed</span>
+                    <span style="color: var(--primary); font-weight: 600;">${percentage}%</span>
+                </div>
+                <div class="subtasks-progress-bar">
+                    <div class="subtasks-progress-fill" style="width: ${percentage}%"></div>
+                </div>
+            `;
+        }
+
+        function addSubtask() {
+            const text = document.getElementById('subtask-input').value.trim();
+
+            if (!text) {
+                showToast('Please enter a subtask', 'error');
+                return;
+            }
+
+            const feature = features.find(f => f.id === currentSubtaskFeatureId);
+            if (!feature) return;
+
+            // Save state for undo
+            saveState();
+
+            // Ensure subtasks array exists
+            if (!feature.subtasks) {
+                feature.subtasks = [];
+            }
+
+            // Add subtask
+            feature.subtasks.push({
+                id: Date.now().toString(),
+                text: text,
+                completed: false,
+                createdAt: new Date().toISOString()
+            });
+
+            // Save and update
+            saveData();
+            renderSubtasks();
+            renderAllViews(); // Update progress bars on cards
+
+            // Clear input
+            document.getElementById('subtask-input').value = '';
+
+            showToast('Subtask added!');
+        }
+
+        function toggleSubtask(subtaskId) {
+            const feature = features.find(f => f.id === currentSubtaskFeatureId);
+            if (!feature) return;
+
+            const subtask = feature.subtasks.find(st => st.id === subtaskId);
+            if (!subtask) return;
+
+            // Save state for undo
+            saveState();
+
+            // Toggle completion
+            subtask.completed = !subtask.completed;
+
+            // Save and update
+            saveData();
+            renderSubtasks();
+            renderAllViews(); // Update progress bars on cards
+
+            showToast(subtask.completed ? 'Subtask completed!' : 'Subtask reopened');
+        }
+
+        function deleteSubtask(subtaskId) {
+            const feature = features.find(f => f.id === currentSubtaskFeatureId);
+            if (!feature) return;
+
+            // Save state for undo
+            saveState();
+
+            // Remove subtask
+            feature.subtasks = feature.subtasks.filter(st => st.id !== subtaskId);
+
+            // Save and update
+            saveData();
+            renderSubtasks();
+            renderAllViews(); // Update progress bars on cards
+
+            showToast('Subtask deleted');
         }
 
         // Edit feature
