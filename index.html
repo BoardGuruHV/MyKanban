@@ -858,6 +858,23 @@
             color: #9ca3af;
         }
 
+        .time-estimate-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            white-space: nowrap;
+            margin-right: 0.5rem;
+        }
+
+        body.dark-mode .time-estimate-badge {
+            background: rgba(139, 92, 246, 0.2);
+            color: #a78bfa;
+        }
+
         .card-due-date {
             font-size: 0.8rem;
             padding: 0.4rem 0.6rem;
@@ -1168,6 +1185,8 @@
                     <option value="priority-low">⚡ Priority: Low to High</option>
                     <option value="due-soon">📆 Due Date: Soonest First</option>
                     <option value="due-later">📆 Due Date: Latest First</option>
+                    <option value="time-high">⏱️ Time: High to Low</option>
+                    <option value="time-low">⏱️ Time: Low to High</option>
                 </select>
             </div>
         </div>
@@ -1249,6 +1268,11 @@
                         <label>Assignees (comma-separated)</label>
                         <input type="text" id="feature-assignees" placeholder="e.g., Alice, Bob, Charlie">
                         <small style="color: var(--text-light); margin-top: 0.25rem; display: block;">Enter names separated by commas</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Estimate (hours)</label>
+                        <input type="number" id="feature-time-estimate" placeholder="e.g., 4" min="0" step="0.5">
+                        <small style="color: var(--text-light); margin-top: 0.25rem; display: block;">Estimated time in hours</small>
                     </div>
                     <div class="form-group">
                         <label>Add to Projects *</label>
@@ -1973,6 +1997,7 @@ Output ONLY the adapted prompt, no explanations.`
             const priority = document.getElementById('feature-priority').value;
             const dueDate = document.getElementById('feature-due-date').value || null;
             const assignees = document.getElementById('feature-assignees').value.trim().split(',').map(a => a.trim()).filter(Boolean);
+            const timeEstimate = parseFloat(document.getElementById('feature-time-estimate').value) || null;
 
             // Get selected projects
             const selectedProjects = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
@@ -1986,7 +2011,7 @@ Output ONLY the adapted prompt, no explanations.`
 
             // Check if we're editing
             if (editingFeatureId) {
-                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjects);
+                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects);
                 return;
             }
 
@@ -1996,15 +2021,15 @@ Output ONLY the adapted prompt, no explanations.`
             // Route based on creation mode
             if (creationMode === 'identical' || selectedProjects.length === 1) {
                 // Original behavior: one feature for all projects
-                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjects);
+                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects);
             } else {
                 // New behavior: contextualize for each project
-                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjects);
+                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects);
             }
         }
 
         // Update existing feature
-        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, assignees, selectedProjects) {
+        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects) {
             const feature = features.find(f => f.id === featureId);
             if (!feature) return;
 
@@ -2019,6 +2044,7 @@ Output ONLY the adapted prompt, no explanations.`
             feature.priority = priority || 'medium';
             feature.dueDate = dueDate;
             feature.assignees = assignees || [];
+            feature.timeEstimate = timeEstimate;
 
             // Update project associations
             featureStatus[featureId] = {};
@@ -2035,7 +2061,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create identical feature for all selected projects
-        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, assignees, selectedProjects) {
+        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects) {
             // Save state for undo
             saveState();
 
@@ -2048,6 +2074,7 @@ Output ONLY the adapted prompt, no explanations.`
                 priority: priority || 'medium',
                 dueDate: dueDate,
                 assignees: assignees || [],
+                timeEstimate: timeEstimate,
                 comments: [],
                 subtasks: [],
                 createdAt: new Date().toISOString(),
@@ -2075,7 +2102,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create contextualized features for multiple projects
-        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, selectedProjectIds) {
+        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjectIds) {
             const variantGroupId = `variant-${Date.now()}`;
             const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
 
@@ -2126,6 +2153,7 @@ Output ONLY the adapted prompt, no explanations.`
                 priority,
                 dueDate,
                 assignees,
+                timeEstimate,
                 variantGroupId,
                 variantPrompts
             };
@@ -2192,7 +2220,7 @@ CONTEXTUALIZED PROMPT:`;
             // Save state for undo
             saveState();
 
-            const { title, description, basePrompt, tags, priority, dueDate, assignees, variantGroupId, variantPrompts } = window.pendingVariants;
+            const { title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, variantGroupId, variantPrompts } = window.pendingVariants;
 
             // Create feature object for each variant
             Object.entries(variantPrompts).forEach(([projectId, variantData], index) => {
@@ -2209,6 +2237,7 @@ CONTEXTUALIZED PROMPT:`;
                     priority: priority || 'medium',
                     dueDate: dueDate,
                     assignees: assignees || [],
+                    timeEstimate: timeEstimate,
                     comments: [],
                     subtasks: [],
                     createdAt: new Date().toISOString(),
@@ -2599,6 +2628,7 @@ CONTEXTUALIZED PROMPT:`;
                                style="margin-right: 0.5rem; cursor: pointer;"
                                ${selectedFeatures.has(feature.id) ? 'checked' : ''}>
                         <div class="card-title" style="flex: 1;">${escapeHtml(feature.title)}</div>
+                        ${feature.timeEstimate ? `<span class="time-estimate-badge" title="Estimated time">${feature.timeEstimate}h</span>` : ''}
                         <span class="priority-badge priority-${feature.priority || 'medium'}">${(feature.priority || 'medium').toUpperCase()}</span>
                     </div>
                     ${feature.description ? `<div class="card-description">${escapeHtml(feature.description)}</div>` : ''}
@@ -3049,6 +3079,7 @@ CONTEXTUALIZED PROMPT:`;
             document.getElementById('feature-priority').value = feature.priority || 'medium';
             document.getElementById('feature-due-date').value = feature.dueDate || '';
             document.getElementById('feature-assignees').value = (feature.assignees || []).join(', ');
+            document.getElementById('feature-time-estimate').value = feature.timeEstimate || '';
 
             // Get projects this feature belongs to
             const featureProjects = Object.keys(featureStatus[featureId] || {});
@@ -3179,6 +3210,24 @@ CONTEXTUALIZED PROMPT:`;
                         if (!a.dueDate) return 1;
                         if (!b.dueDate) return -1;
                         return new Date(b.dueDate) - new Date(a.dueDate);
+                    });
+                    break;
+                case 'time-high':
+                    sorted.sort((a, b) => {
+                        // Items with no time estimate go to the end
+                        if (!a.timeEstimate && !b.timeEstimate) return 0;
+                        if (!a.timeEstimate) return 1;
+                        if (!b.timeEstimate) return -1;
+                        return b.timeEstimate - a.timeEstimate;
+                    });
+                    break;
+                case 'time-low':
+                    sorted.sort((a, b) => {
+                        // Items with no time estimate go to the end
+                        if (!a.timeEstimate && !b.timeEstimate) return 0;
+                        if (!a.timeEstimate) return 1;
+                        if (!b.timeEstimate) return -1;
+                        return a.timeEstimate - b.timeEstimate;
                     });
                     break;
             }
