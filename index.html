@@ -958,6 +958,55 @@
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
         }
 
+        .comment-count {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #f56565;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.1rem 0.35rem;
+            border-radius: 10px;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        .comment-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            gap: 0.5rem;
+        }
+
+        .comment-author {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+
+        .comment-date {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .comment-text {
+            color: var(--text);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .kanban-board {
@@ -1307,6 +1356,33 @@ Output ONLY the adapted prompt, no explanations.</textarea>
                     <button class="btn btn-secondary" onclick="cancelContextualization()">
                         Cancel
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments Modal -->
+    <div class="modal" id="comments-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>💬 Comments</h2>
+                <button class="modal-close" onclick="closeModal('comments')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="feature-title-display" style="font-weight: 600; margin-bottom: 1rem; color: var(--text); padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;"></div>
+
+                <div id="comments-list" style="max-height: 400px; overflow-y: auto; margin-bottom: 1.5rem;">
+                    <!-- Comments will be populated here -->
+                </div>
+
+                <div style="border-top: 2px solid var(--border); padding-top: 1rem;">
+                    <div class="form-group" style="margin-bottom: 0.5rem;">
+                        <input type="text" id="comment-author" placeholder="Your name" style="margin-bottom: 0.5rem;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem;">
+                        <textarea id="comment-text" placeholder="Add a comment..." style="min-height: 80px; resize: vertical;"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="addComment()">Add Comment</button>
                 </div>
             </div>
         </div>
@@ -1878,6 +1954,7 @@ Output ONLY the adapted prompt, no explanations.`
                 priority: priority || 'medium',
                 dueDate: dueDate,
                 assignees: assignees || [],
+                comments: [],
                 createdAt: new Date().toISOString(),
                 // New fields for backward compatibility
                 isVariant: false,
@@ -2037,6 +2114,7 @@ CONTEXTUALIZED PROMPT:`;
                     priority: priority || 'medium',
                     dueDate: dueDate,
                     assignees: assignees || [],
+                    comments: [],
                     createdAt: new Date().toISOString(),
                     isVariant: true,
                     variantGroupId: variantGroupId,
@@ -2453,6 +2531,10 @@ CONTEXTUALIZED PROMPT:`;
                             ` : ''}
                         </div>
                         <div class="card-actions">
+                            <button class="btn btn-icon btn-small" onclick="openComments('${feature.id}')" title="Comments" style="position: relative;">
+                                💬
+                                ${(feature.comments && feature.comments.length > 0) ? `<span class="comment-count">${feature.comments.length}</span>` : ''}
+                            </button>
                             <button class="btn btn-icon btn-small" onclick="copyPrompt('${feature.id}')" title="Copy Prompt">
                                 📋
                             </button>
@@ -2574,6 +2656,113 @@ CONTEXTUALIZED PROMPT:`;
             saveData();
             renderAllViews();
             showToast('Feature deleted');
+        }
+
+        // Comments functionality
+        let currentCommentFeatureId = null;
+
+        function openComments(featureId) {
+            const feature = features.find(f => f.id === featureId);
+            if (!feature) return;
+
+            currentCommentFeatureId = featureId;
+
+            // Ensure comments array exists
+            if (!feature.comments) {
+                feature.comments = [];
+            }
+
+            // Set feature title
+            document.getElementById('feature-title-display').textContent = feature.title;
+
+            // Render comments
+            renderComments();
+
+            // Clear input fields
+            document.getElementById('comment-author').value = '';
+            document.getElementById('comment-text').value = '';
+
+            // Open modal
+            openModal('comments');
+        }
+
+        function renderComments() {
+            const feature = features.find(f => f.id === currentCommentFeatureId);
+            if (!feature) return;
+
+            const commentsList = document.getElementById('comments-list');
+
+            if (!feature.comments || feature.comments.length === 0) {
+                commentsList.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">No comments yet. Be the first to comment!</p>';
+                return;
+            }
+
+            commentsList.innerHTML = feature.comments.map(comment => `
+                <div class="comment-item">
+                    <div class="comment-header">
+                        <span class="comment-author">${escapeHtml(comment.author)}</span>
+                        <span class="comment-date">${formatCommentDate(comment.timestamp)}</span>
+                    </div>
+                    <div class="comment-text">${escapeHtml(comment.text)}</div>
+                </div>
+            `).join('');
+        }
+
+        function addComment() {
+            const author = document.getElementById('comment-author').value.trim();
+            const text = document.getElementById('comment-text').value.trim();
+
+            if (!author) {
+                showToast('Please enter your name', 'error');
+                return;
+            }
+
+            if (!text) {
+                showToast('Please enter a comment', 'error');
+                return;
+            }
+
+            const feature = features.find(f => f.id === currentCommentFeatureId);
+            if (!feature) return;
+
+            // Save state for undo
+            saveState();
+
+            // Ensure comments array exists
+            if (!feature.comments) {
+                feature.comments = [];
+            }
+
+            // Add comment
+            feature.comments.push({
+                id: Date.now().toString(),
+                author: author,
+                text: text,
+                timestamp: new Date().toISOString()
+            });
+
+            // Save and update
+            saveData();
+            renderComments();
+            renderAllViews(); // Update comment count badges
+
+            // Clear text field but keep author name
+            document.getElementById('comment-text').value = '';
+
+            showToast('Comment added!');
+        }
+
+        function formatCommentDate(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+            if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
         // Edit feature
