@@ -197,6 +197,17 @@
             color: var(--text);
         }
 
+        .stat-badge .time-detail {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #8b5cf6;
+            margin-left: 0.25rem;
+        }
+
+        body.dark-mode .stat-badge .time-detail {
+            color: #a78bfa;
+        }
+
         .stat-badge-time {
             background: rgba(139, 92, 246, 0.1);
             border: 1px solid rgba(139, 92, 246, 0.3);
@@ -2722,19 +2733,19 @@ CONTEXTUALIZED PROMPT:`;
             return `
                 <div class="stat-badge">
                     <span class="label">Total:</span>
-                    <span class="value">${stats.total}</span>
+                    <span class="value">${stats.total}${stats.totalTime > 0 ? ` <span class="time-detail">(${stats.totalTime}h)</span>` : ''}</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="label">Backlog:</span>
+                    <span class="value">${stats.backlog}${stats.backlogTime > 0 ? ` <span class="time-detail">(${stats.backlogTime}h)</span>` : ''}</span>
                 </div>
                 <div class="stat-badge">
                     <span class="label">In Progress:</span>
-                    <span class="value">${stats.inProgress}</span>
+                    <span class="value">${stats.inProgress}${stats.inProgressTime > 0 ? ` <span class="time-detail">(${stats.inProgressTime}h)</span>` : ''}</span>
                 </div>
                 <div class="stat-badge">
                     <span class="label">Completed:</span>
-                    <span class="value">${stats.done}</span>
-                </div>
-                <div class="stat-badge stat-badge-time">
-                    <span class="label">Total Time:</span>
-                    <span class="value">${stats.totalTime}h</span>
+                    <span class="value">${stats.done}${stats.doneTime > 0 ? ` <span class="time-detail">(${stats.doneTime}h)</span>` : ''}</span>
                 </div>
             `;
         }
@@ -2743,14 +2754,22 @@ CONTEXTUALIZED PROMPT:`;
         function getProjectStats(projectId) {
             let backlog = 0, inProgress = 0, done = 0;
             let totalTime = 0;
+            let backlogTime = 0, inProgressTime = 0, doneTime = 0;
 
             const filteredFeatures = features.filter(matchesSearch);
 
             filteredFeatures.forEach(feature => {
                 const status = featureStatus[feature.id]?.[projectId];
-                if (status === 'backlog') backlog++;
-                else if (status === 'in_progress') inProgress++;
-                else if (status === 'done') done++;
+                if (status === 'backlog') {
+                    backlog++;
+                    if (feature.timeEstimate) backlogTime += feature.timeEstimate;
+                } else if (status === 'in_progress') {
+                    inProgress++;
+                    if (feature.timeEstimate) inProgressTime += feature.timeEstimate;
+                } else if (status === 'done') {
+                    done++;
+                    if (feature.timeEstimate) doneTime += feature.timeEstimate;
+                }
 
                 // Sum up time estimates
                 if (feature.timeEstimate) {
@@ -2763,7 +2782,10 @@ CONTEXTUALIZED PROMPT:`;
                 backlog,
                 inProgress,
                 done,
-                totalTime
+                totalTime,
+                backlogTime,
+                inProgressTime,
+                doneTime
             };
         }
 
