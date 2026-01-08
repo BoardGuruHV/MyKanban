@@ -1260,6 +1260,18 @@
                     <option value="">👥 All Assignees</option>
                 </select>
                 <select
+                    id="time-filter"
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
+                    onchange="handleTimeFilter(event)"
+                >
+                    <option value="">⏱️ All Times</option>
+                    <option value="no-estimate">No Estimate</option>
+                    <option value="0-2">< 2 hours</option>
+                    <option value="2-4">2-4 hours</option>
+                    <option value="4-8">4-8 hours</option>
+                    <option value="8+">8+ hours</option>
+                </select>
+                <select
                     id="sort-features"
                     style="padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text); font-size: 0.95rem; min-width: 180px;"
                     onchange="handleSort(event)"
@@ -1607,6 +1619,7 @@ Output ONLY the adapted prompt, no explanations.</textarea>
         let selectedTag = ''; // Tag filter
         let selectedPriority = ''; // Priority filter
         let selectedAssignee = ''; // Assignee filter
+        let selectedTimeRange = ''; // Time estimate filter
         let sortOrder = 'newest'; // Sort order
         let selectedFeatures = new Set(); // Bulk selection
 
@@ -3282,6 +3295,12 @@ CONTEXTUALIZED PROMPT:`;
             renderAllViews();
         }
 
+        // Handle time estimate filter
+        function handleTimeFilter(event) {
+            selectedTimeRange = event.target.value;
+            renderAllViews();
+        }
+
         // Handle sort
         function handleSort(event) {
             sortOrder = event.target.value;
@@ -3390,6 +3409,23 @@ CONTEXTUALIZED PROMPT:`;
             // Check assignee filter
             if (selectedAssignee && !(feature.assignees || []).includes(selectedAssignee)) {
                 return false;
+            }
+
+            // Check time estimate filter
+            if (selectedTimeRange) {
+                const timeEstimate = feature.timeEstimate || 0;
+
+                if (selectedTimeRange === 'no-estimate') {
+                    if (feature.timeEstimate) return false;
+                } else if (selectedTimeRange === '0-2') {
+                    if (!feature.timeEstimate || timeEstimate >= 2) return false;
+                } else if (selectedTimeRange === '2-4') {
+                    if (!feature.timeEstimate || timeEstimate < 2 || timeEstimate >= 4) return false;
+                } else if (selectedTimeRange === '4-8') {
+                    if (!feature.timeEstimate || timeEstimate < 4 || timeEstimate >= 8) return false;
+                } else if (selectedTimeRange === '8+') {
+                    if (!feature.timeEstimate || timeEstimate < 8) return false;
+                }
             }
 
             return true;
