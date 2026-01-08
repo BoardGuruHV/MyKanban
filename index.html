@@ -197,6 +197,29 @@
             color: var(--text);
         }
 
+        .stat-badge-time {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .stat-badge-time .label {
+            color: #8b5cf6;
+        }
+
+        .stat-badge-time .value {
+            color: #8b5cf6;
+        }
+
+        body.dark-mode .stat-badge-time {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        body.dark-mode .stat-badge-time .label,
+        body.dark-mode .stat-badge-time .value {
+            color: #a78bfa;
+        }
+
         .kanban-board {
             flex: 1;
             display: grid;
@@ -2709,12 +2732,17 @@ CONTEXTUALIZED PROMPT:`;
                     <span class="label">Completed:</span>
                     <span class="value">${stats.done}</span>
                 </div>
+                <div class="stat-badge stat-badge-time">
+                    <span class="label">Total Time:</span>
+                    <span class="value">${stats.totalTime}h</span>
+                </div>
             `;
         }
 
         // Get project stats
         function getProjectStats(projectId) {
             let backlog = 0, inProgress = 0, done = 0;
+            let totalTime = 0;
 
             const filteredFeatures = features.filter(matchesSearch);
 
@@ -2723,13 +2751,19 @@ CONTEXTUALIZED PROMPT:`;
                 if (status === 'backlog') backlog++;
                 else if (status === 'in_progress') inProgress++;
                 else if (status === 'done') done++;
+
+                // Sum up time estimates
+                if (feature.timeEstimate) {
+                    totalTime += feature.timeEstimate;
+                }
             });
 
             return {
                 total: filteredFeatures.length,
                 backlog,
                 inProgress,
-                done
+                done,
+                totalTime
             };
         }
 
