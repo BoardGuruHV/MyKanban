@@ -261,6 +261,39 @@
             background: linear-gradient(90deg, #a78bfa, #c4b5fd);
         }
 
+        .time-variance {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .variance-over {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .variance-under {
+            background: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        body.dark-mode .variance-over {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        body.dark-mode .variance-under {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, 0.4);
+        }
+
         .stat-badge-time {
             background: rgba(139, 92, 246, 0.1);
             border: 1px solid rgba(139, 92, 246, 0.3);
@@ -962,6 +995,23 @@
             color: #a78bfa;
         }
 
+        .actual-time-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(34, 197, 94, 0.15);
+            color: #16a34a;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            white-space: nowrap;
+            margin-right: 0.5rem;
+        }
+
+        body.dark-mode .actual-time-badge {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+
         .card-due-date {
             font-size: 0.8rem;
             padding: 0.4rem 0.6rem;
@@ -1372,6 +1422,11 @@
                         <label>Time Estimate (hours)</label>
                         <input type="number" id="feature-time-estimate" placeholder="e.g., 4" min="0" step="0.5">
                         <small style="color: var(--text-light); margin-top: 0.25rem; display: block;">Estimated time in hours</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Actual Time (hours)</label>
+                        <input type="number" id="feature-actual-time" placeholder="e.g., 5.5" min="0" step="0.5">
+                        <small style="color: var(--text-light); margin-top: 0.25rem; display: block;">Actual time spent in hours</small>
                     </div>
                     <div class="form-group">
                         <label>Add to Projects *</label>
@@ -2098,6 +2153,7 @@ Output ONLY the adapted prompt, no explanations.`
             const dueDate = document.getElementById('feature-due-date').value || null;
             const assignees = document.getElementById('feature-assignees').value.trim().split(',').map(a => a.trim()).filter(Boolean);
             const timeEstimate = parseFloat(document.getElementById('feature-time-estimate').value) || null;
+            const actualTime = parseFloat(document.getElementById('feature-actual-time').value) || 0;
 
             // Get selected projects
             const selectedProjects = Array.from(document.querySelectorAll('#project-checkboxes input[type="checkbox"]:checked'))
@@ -2111,7 +2167,7 @@ Output ONLY the adapted prompt, no explanations.`
 
             // Check if we're editing
             if (editingFeatureId) {
-                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects);
+                updateFeature(editingFeatureId, title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, selectedProjects);
                 return;
             }
 
@@ -2121,15 +2177,15 @@ Output ONLY the adapted prompt, no explanations.`
             // Route based on creation mode
             if (creationMode === 'identical' || selectedProjects.length === 1) {
                 // Original behavior: one feature for all projects
-                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects);
+                createIdenticalFeature(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, selectedProjects);
             } else {
                 // New behavior: contextualize for each project
-                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects);
+                await createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, selectedProjects);
             }
         }
 
         // Update existing feature
-        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects) {
+        function updateFeature(featureId, title, description, prompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, selectedProjects) {
             const feature = features.find(f => f.id === featureId);
             if (!feature) return;
 
@@ -2145,6 +2201,7 @@ Output ONLY the adapted prompt, no explanations.`
             feature.dueDate = dueDate;
             feature.assignees = assignees || [];
             feature.timeEstimate = timeEstimate;
+            feature.actualTime = actualTime || 0;
 
             // Update project associations
             featureStatus[featureId] = {};
@@ -2161,7 +2218,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create identical feature for all selected projects
-        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjects) {
+        function createIdenticalFeature(title, description, prompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, selectedProjects) {
             // Save state for undo
             saveState();
 
@@ -2175,6 +2232,7 @@ Output ONLY the adapted prompt, no explanations.`
                 dueDate: dueDate,
                 assignees: assignees || [],
                 timeEstimate: timeEstimate,
+                actualTime: 0,
                 comments: [],
                 subtasks: [],
                 createdAt: new Date().toISOString(),
@@ -2202,7 +2260,7 @@ Output ONLY the adapted prompt, no explanations.`
         }
 
         // Create contextualized features for multiple projects
-        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, selectedProjectIds) {
+        async function createContextualizedFeatures(title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, selectedProjectIds) {
             const variantGroupId = `variant-${Date.now()}`;
             const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
 
@@ -2254,6 +2312,7 @@ Output ONLY the adapted prompt, no explanations.`
                 dueDate,
                 assignees,
                 timeEstimate,
+                actualTime,
                 variantGroupId,
                 variantPrompts
             };
@@ -2320,7 +2379,7 @@ CONTEXTUALIZED PROMPT:`;
             // Save state for undo
             saveState();
 
-            const { title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, variantGroupId, variantPrompts } = window.pendingVariants;
+            const { title, description, basePrompt, tags, priority, dueDate, assignees, timeEstimate, actualTime, variantGroupId, variantPrompts } = window.pendingVariants;
 
             // Create feature object for each variant
             Object.entries(variantPrompts).forEach(([projectId, variantData], index) => {
@@ -2338,6 +2397,7 @@ CONTEXTUALIZED PROMPT:`;
                     dueDate: dueDate,
                     assignees: assignees || [],
                     timeEstimate: timeEstimate,
+                    actualTime: 0,
                     comments: [],
                     subtasks: [],
                     createdAt: new Date().toISOString(),
@@ -2728,7 +2788,8 @@ CONTEXTUALIZED PROMPT:`;
                                style="margin-right: 0.5rem; cursor: pointer;"
                                ${selectedFeatures.has(feature.id) ? 'checked' : ''}>
                         <div class="card-title" style="flex: 1;">${escapeHtml(feature.title)}</div>
-                        ${feature.timeEstimate ? `<span class="time-estimate-badge" title="Estimated time">${feature.timeEstimate}h</span>` : ''}
+                        ${feature.timeEstimate ? `<span class="time-estimate-badge" title="Estimated time">Est: ${feature.timeEstimate}h</span>` : ''}
+                        ${feature.actualTime ? `<span class="actual-time-badge" title="Actual time spent">Act: ${feature.actualTime}h</span>` : ''}
                         <span class="priority-badge priority-${feature.priority || 'medium'}">${(feature.priority || 'medium').toUpperCase()}</span>
                     </div>
                     ${feature.description ? `<div class="card-description">${escapeHtml(feature.description)}</div>` : ''}
@@ -2801,19 +2862,19 @@ CONTEXTUALIZED PROMPT:`;
             return `
                 <div class="stat-badge">
                     <span class="label">Total:</span>
-                    <span class="value">${stats.total}${stats.totalTime > 0 ? ` <span class="time-detail">(${stats.totalTime}h)</span>` : ''}</span>
+                    <span class="value">${stats.total}${stats.totalTime > 0 || stats.totalActualTime > 0 ? ` <span class="time-detail">(Est: ${stats.totalTime}h / Act: ${stats.totalActualTime}h)</span>` : ''}</span>
                 </div>
                 <div class="stat-badge">
                     <span class="label">Backlog:</span>
-                    <span class="value">${stats.backlog}${stats.backlogTime > 0 ? ` <span class="time-detail">(${stats.backlogTime}h)</span>` : ''}</span>
+                    <span class="value">${stats.backlog}${stats.backlogTime > 0 || stats.backlogActualTime > 0 ? ` <span class="time-detail">(Est: ${stats.backlogTime}h / Act: ${stats.backlogActualTime}h)</span>` : ''}</span>
                 </div>
                 <div class="stat-badge">
                     <span class="label">In Progress:</span>
-                    <span class="value">${stats.inProgress}${stats.inProgressTime > 0 ? ` <span class="time-detail">(${stats.inProgressTime}h)</span>` : ''}</span>
+                    <span class="value">${stats.inProgress}${stats.inProgressTime > 0 || stats.inProgressActualTime > 0 ? ` <span class="time-detail">(Est: ${stats.inProgressTime}h / Act: ${stats.inProgressActualTime}h)</span>` : ''}</span>
                 </div>
                 <div class="stat-badge">
                     <span class="label">Completed:</span>
-                    <span class="value">${stats.done}${stats.doneTime > 0 ? ` <span class="time-detail">(${stats.doneTime}h)</span>` : ''}</span>
+                    <span class="value">${stats.done}${stats.doneTime > 0 || stats.doneActualTime > 0 ? ` <span class="time-detail">(Est: ${stats.doneTime}h / Act: ${stats.doneActualTime}h)</span>` : ''}</span>
                 </div>
                 ${showProgress ? `
                 <div class="time-progress-container">
@@ -2824,6 +2885,17 @@ CONTEXTUALIZED PROMPT:`;
                     <div class="time-progress-bar">
                         <div class="time-progress-fill" style="width: ${stats.completionPercentage}%"></div>
                     </div>
+                    ${stats.totalActualTime > 0 ? (() => {
+                        const variance = stats.totalActualTime - stats.totalTime;
+                        const variancePercent = stats.totalTime > 0 ? Math.round((variance / stats.totalTime) * 100) : 0;
+                        const isOverBudget = variance > 0;
+                        const varianceClass = isOverBudget ? 'variance-over' : 'variance-under';
+                        const varianceIcon = isOverBudget ? '⚠️' : '✓';
+                        return `
+                        <div class="time-variance ${varianceClass}">
+                            ${varianceIcon} ${isOverBudget ? 'Over' : 'Under'} by ${Math.abs(variance).toFixed(1)}h (${Math.abs(variancePercent)}%)
+                        </div>`;
+                    })() : ''}
                 </div>
                 ` : ''}
             `;
@@ -2834,6 +2906,8 @@ CONTEXTUALIZED PROMPT:`;
             let backlog = 0, inProgress = 0, done = 0;
             let totalTime = 0;
             let backlogTime = 0, inProgressTime = 0, doneTime = 0;
+            let totalActualTime = 0;
+            let backlogActualTime = 0, inProgressActualTime = 0, doneActualTime = 0;
 
             const filteredFeatures = features.filter(matchesSearch);
 
@@ -2842,17 +2916,25 @@ CONTEXTUALIZED PROMPT:`;
                 if (status === 'backlog') {
                     backlog++;
                     if (feature.timeEstimate) backlogTime += feature.timeEstimate;
+                    if (feature.actualTime) backlogActualTime += feature.actualTime;
                 } else if (status === 'in_progress') {
                     inProgress++;
                     if (feature.timeEstimate) inProgressTime += feature.timeEstimate;
+                    if (feature.actualTime) inProgressActualTime += feature.actualTime;
                 } else if (status === 'done') {
                     done++;
                     if (feature.timeEstimate) doneTime += feature.timeEstimate;
+                    if (feature.actualTime) doneActualTime += feature.actualTime;
                 }
 
                 // Sum up time estimates
                 if (feature.timeEstimate) {
                     totalTime += feature.timeEstimate;
+                }
+
+                // Sum up actual time
+                if (feature.actualTime) {
+                    totalActualTime += feature.actualTime;
                 }
             });
 
@@ -2868,6 +2950,10 @@ CONTEXTUALIZED PROMPT:`;
                 backlogTime,
                 inProgressTime,
                 doneTime,
+                totalActualTime,
+                backlogActualTime,
+                inProgressActualTime,
+                doneActualTime,
                 completionPercentage
             };
         }
@@ -3219,6 +3305,7 @@ CONTEXTUALIZED PROMPT:`;
             document.getElementById('feature-due-date').value = feature.dueDate || '';
             document.getElementById('feature-assignees').value = (feature.assignees || []).join(', ');
             document.getElementById('feature-time-estimate').value = feature.timeEstimate || '';
+            document.getElementById('feature-actual-time').value = feature.actualTime || '';
 
             // Get projects this feature belongs to
             const featureProjects = Object.keys(featureStatus[featureId] || {});
