@@ -208,6 +208,59 @@
             color: #a78bfa;
         }
 
+        .time-progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-primary);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            min-width: 200px;
+        }
+
+        .time-progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+
+        .time-progress-percentage {
+            font-weight: 700;
+            color: #8b5cf6;
+        }
+
+        body.dark-mode .time-progress-percentage {
+            color: #a78bfa;
+        }
+
+        .time-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        body.dark-mode .time-progress-bar {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .time-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        body.dark-mode .time-progress-fill {
+            background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+        }
+
         .stat-badge-time {
             background: rgba(139, 92, 246, 0.1);
             border: 1px solid rgba(139, 92, 246, 0.3);
@@ -2730,6 +2783,8 @@ CONTEXTUALIZED PROMPT:`;
         // Render project stats
         function renderProjectStats(projectId) {
             const stats = getProjectStats(projectId);
+            const showProgress = stats.totalTime > 0;
+
             return `
                 <div class="stat-badge">
                     <span class="label">Total:</span>
@@ -2747,6 +2802,17 @@ CONTEXTUALIZED PROMPT:`;
                     <span class="label">Completed:</span>
                     <span class="value">${stats.done}${stats.doneTime > 0 ? ` <span class="time-detail">(${stats.doneTime}h)</span>` : ''}</span>
                 </div>
+                ${showProgress ? `
+                <div class="time-progress-container">
+                    <div class="time-progress-label">
+                        <span>Time Completion</span>
+                        <span class="time-progress-percentage">${stats.completionPercentage}%</span>
+                    </div>
+                    <div class="time-progress-bar">
+                        <div class="time-progress-fill" style="width: ${stats.completionPercentage}%"></div>
+                    </div>
+                </div>
+                ` : ''}
             `;
         }
 
@@ -2777,6 +2843,9 @@ CONTEXTUALIZED PROMPT:`;
                 }
             });
 
+            // Calculate completion percentage based on time
+            const completionPercentage = totalTime > 0 ? Math.round((doneTime / totalTime) * 100) : 0;
+
             return {
                 total: filteredFeatures.length,
                 backlog,
@@ -2785,7 +2854,8 @@ CONTEXTUALIZED PROMPT:`;
                 totalTime,
                 backlogTime,
                 inProgressTime,
-                doneTime
+                doneTime,
+                completionPercentage
             };
         }
 
